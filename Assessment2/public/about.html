@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Us - TechMart</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Inherit Global Styles from index.html */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+
+        header {
+        background-color: #2d6a4f;
+        padding: 1rem;
+        position: fixed;
+        width: 100%;
+        top: 0;
+        z-index: 1000;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .header-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        }
+
+        .logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        }
+
+        .logo h1 {
+        color: white;
+        font-size: 1.8rem;
+        font-weight: 600;
+        }
+
+        .logo i {
+        color: #fff;
+        font-size: 2rem;
+        }
+
+        .header-nav {
+        display: flex;
+        gap: 20px;
+        align-items: center;
+        }
+
+        .nav-links {
+        display: flex;
+        gap: 20px;
+        list-style: none;
+        }
+
+        .nav-links a {
+        color: white;
+        text-decoration: none;
+        font-weight: 500;
+        padding: 8px 15px;
+        border-radius: 4px;
+        transition: background-color 0.3s;
+        }
+
+        .nav-links a:hover {
+        background-color: rgba(255,255,255,0.1);
+        }
+
+        .auth-buttons a {
+        padding: 8px 20px;
+        border-radius: 4px;
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.3s;
+        }
+
+        .login-btn {
+        color: #2d6a4f;
+        background-color: white;
+        }
+
+        .register-btn {
+          color: white;
+          border: 1px solid white;
+          margin-left: 10px;
+        }
+
+    
+        .logo a {
+            color: white;
+            transition: opacity 0.3s;
+        }
+
+        .logo a:hover {
+            opacity: 0.9;
+        }
+
+        /* About Page Specific Styles */
+        .about-hero {
+            margin-top: 80px;
+            background: linear-gradient(rgba(45, 106, 79, 0.9), rgba(45, 106, 79, 0.9)),
+                        url('https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?ixlib=rb-1.2.1&auto=format&fit=crop&w=2000&q=80');
+            background-size: cover;
+            background-position: center;
+            color: white;
+            text-align: center;
+            padding: 100px 20px;
+        }
+
+        .about-hero h1 {
+            font-size: 3.5rem;
+            margin-bottom: 20px;
+        }
+
+        .about-hero p {
+            font-size: 1.2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .about-content {
+            max-width: 1200px;
+            margin: 60px auto;
+            padding: 0 20px;
+        }
+
+        .mission-section {
+            text-align: center;
+            margin-bottom: 80px;
+        }
+
+        .mission-section h2 {
+            color: #2d6a4f;
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+        }
+
+        .mission-section p {
+            font-size: 1.1rem;
+            max-width: 800px;
+            margin: 0 auto;
+            color: #666;
+        }
+
+        .stats-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            margin: 60px 0;
+            text-align: center;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .stat-card h3 {
+            color: #2d6a4f;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .stat-card p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .team-section {
+            margin: 80px 0;
+        }
+
+        .team-section h2 {
+            text-align: center;
+            color: #2d6a4f;
+            font-size: 2.5rem;
+            margin-bottom: 50px;
+        }
+
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+        }
+
+        .team-member {
+            text-align: center;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .team-member img {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            margin-bottom: 20px;
+            object-fit: cover;
+        }
+
+        .team-member h3 {
+            color: #2d6a4f;
+            margin-bottom: 10px;
+        }
+
+        .team-member p {
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .social-links {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .social-links a {
+            color: #2d6a4f;
+            font-size: 1.2rem;
+            transition: transform 0.3s;
+        }
+
+        .social-links a:hover {
+            transform: translateY(-3px);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-container">
+          <div class="logo">
+            <a href="index.html" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-shopping-bag"></i>
+                <h1>TechMart</h1>
+            </a>
+          </div>
+          <nav class="header-nav">
+            <ul class="nav-links">
+              <li><a href="products.html">Products</a></li>
+              <li><a href="about.html">About</a></li>
+              <li><a href="contact.html">Contact</a></li>
+              <li><a href="profile.html">Profile</a></li>
+              <li><a href="cart.html">Cart</a></li>
+
+              
+            </ul>
+            <div class="auth-buttons">
+              <a href="login.html" class="login-btn">Login</a>
+              <a href="register.html" class="register-btn">Register</a>
+              <a href="clientlogin.html" class="login-btn">Seller Login</a>
+            </div>
+          </nav>
+        </div>
+      </header>
+
+    <section class="about-hero">
+        <h1>Our Story</h1>
+        <p>Building the future of e-commerce, one innovation at a time.</p>
+    </section>
+
+    <div class="about-content">
+        <section class="mission-section">
+            <h2>Our Mission</h2>
+            <p>At TechMart, we're driven by a simple but powerful mission: to revolutionize the way people shop for technology. 
+               We believe in making high-quality tech products accessible to everyone while providing an exceptional shopping experience. 
+               Our commitment to innovation, customer satisfaction, and sustainable practices sets us apart in the e-commerce landscape.</p>
+        </section>
+
+        <section class="stats-section">
+            <div class="stat-card">
+                <h3>5K+</h3>
+                <p>Active Customers</p>
+            </div>
+            <div class="stat-card">
+                <h3>5K+</h3>
+                <p>Products</p>
+            </div>
+            <div class="stat-card">
+                <h3>10+</h3>
+                <p>Year Experience</p>
+            </div>
+            <div class="stat-card">
+                <h3>24/7</h3>
+                <p>Customer Support</p>
+            </div>
+        </section>
+
+        
+    </div>
+
+    <!-- Include the same footer as index.html -->
+</body>
+</html>
