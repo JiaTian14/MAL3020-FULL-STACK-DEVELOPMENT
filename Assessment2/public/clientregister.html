@@ -166,7 +166,7 @@
             <div class="form-section">
                 <h2>Personal Information</h2>
                 <div class="form-group">
-                    <label for="name">Full Name</label>
+                    <label for="name">Shop Name</label>
                     <input type="text" id="name" required>
                 </div>
                 <div class="form-group">
@@ -196,10 +196,10 @@
     </div>
 
     <script>
-        const sellerRegisterForm = document.getElementById('registerForm'); // Update the ID here
+        const sellerRegisterForm = document.getElementById('registerForm'); // Ensure this ID matches your form
         const errorMessage = document.getElementById('errorMessage');
         const successMessage = document.getElementById('successMessage');
-
+    
         // Password validation function
         function validatePassword(password) {
             const minLength = 8;
@@ -207,46 +207,50 @@
             const hasLetter = /[a-zA-Z]/.test(password);
             return password.length >= minLength && hasNumber && hasLetter;
         }
-
-        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+    
+        sellerRegisterForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const username = document.getElementById('username').value;
+            const name = document.getElementById('name').value; // Ensure this ID matches your input field
             const email = document.getElementById('email').value;
-            const shopName = document.getElementById('shopName').value;
             const password = document.getElementById('password').value;
-
+    
             // Debug log
             console.log('Form submitted:', { name, email, password });
-
+    
             // Reset messages
             errorMessage.style.display = 'none';
             successMessage.style.display = 'none';
-
-            // Validate password match
+    
+            // Validate password
             if (!validatePassword(password)) {
-                errorMessage.textContent = 'Password does not meet the requirements.';
+                errorMessage.textContent = 'Password must be at least 8 characters long and contain both letters and numbers.';
                 errorMessage.style.display = 'block';
                 return;
-    }
-
-    try {
-                const response = await fetch('http://localhost:3000/api/sellers/register', {
+            }
+    
+            try {
+                const response = await fetch('http://localhost:3000/api/seller/register', { // Ensure the endpoint is correct
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, email, shopName, password })
+                    body: JSON.stringify({ name, email, password }) // Removed shopName as it is not in the server code
                 });
-
+    
                 const data = await response.json();
                 if (response.ok) {
-                    alert('Registration successful!');
-                    window.location.href = 'login.html';  // Redirect to login page
+                    successMessage.textContent = 'Registration successful! Redirecting to login...';
+                    successMessage.style.display = 'block';
+                    setTimeout(() => {
+                        window.location.href = 'clientlogin.html';  // Redirect to login page
+                    }, 2000); // Redirect after 2 seconds
                 } else {
-                    document.getElementById('errorMessage').textContent = data.error;
+                    errorMessage.textContent = data.message || 'Registration failed. Please try again.';
+                    errorMessage.style.display = 'block';
                 }
             } catch (err) {
                 console.error('Error:', err);
-                document.getElementById('errorMessage').textContent = 'Something went wrong.';
+                errorMessage.textContent = 'Something went wrong. Please try again later.';
+                errorMessage.style.display = 'block';
             }
         });
     </script>

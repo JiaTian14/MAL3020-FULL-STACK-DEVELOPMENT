@@ -219,31 +219,25 @@
                 if (response.ok) {
                     alert('Login successful!');
                     console.log('JWT Token:', data.token);
-                    // Store token and redirect to seller dashboard or homepage
                     localStorage.setItem('token', data.token);
-                    window.location.href = 'dashboard.html';  // Redirect to dashboard page
+                    window.location.href = 'clientdashboard.html';  // Redirect to dashboard page
                 } else {
                     document.getElementById('errorMessage').textContent = data.error;
+                    document.getElementById('errorMessage').style.display = 'block';
                 }
             } catch (err) {
                 console.error('Error:', err);
                 document.getElementById('errorMessage').textContent = 'Something went wrong.';
+                document.getElementById('errorMessage').style.display = 'block';
             }
         });
-      
 
-    function logout() {
-      // Remove user data from localStorage
-      localStorage.removeItem('userData');
-      
-      // Hide user profile and show the login form again
-      userProfileDiv.style.display = 'none';
-      loginFormDiv.style.display = 'block';
-      
-      // Optionally redirect to login page
-      window.location.href = 'login.html';
-    }
-
+        function logout() {
+            localStorage.removeItem('userData');
+            userProfileDiv.style.display = 'none';
+            loginFormDiv.style.display = 'block';
+            window.location.href = 'clientlogin.html';
+        }
     </script>
 </body>
 </html>

@@ -43,24 +43,10 @@ async function connectDB() {
 mongoose.connect(uri, {
     serverSelectionTimeoutMS: 30000,
     connectTimeoutMS: 30000
-})
-.then(() => {
-    console.log('Connected to MongoDB Atlas');
+  })
+  .then(() => console.log('Connected to MongoDB Atlas'))
+  .catch(err => console.log('Connection error:', err));
 
-    // 测试插入文档
-    const testSchema = new mongoose.Schema({ name: String });
-    const TestModel = mongoose.model('Test', testSchema);
-
-    const testDoc = new TestModel({ name: 'Test Document' });
-    return testDoc.save();
-})
-.then(() => {
-    console.log('Test document saved');
-    mongoose.connection.close(); // 关闭连接
-})
-.catch(err => {
-    console.error('Connection error:', err);
-});
   
 // Helper function for error handling
 const asyncHandler = (fn) => (req, res, next) => {
@@ -430,15 +416,13 @@ app.use((err, req, res, next) => {
 });  
 
 
-// 添加卖家注册路由
-app.post('/api/seller/register', asyncHandler(async (req, res) => {
-    const client = await connectDB();
-    const database = client.db("techmart");
-    const sellers = database.collection("sellers");
+// ---------- POST Routes ----------
 
+// Seller registration endpoint
+app.post('/api/seller/register', asyncHandler(async (req, res) => {
     const { name, email, password } = req.body;
 
-    // 验证必填字段
+    // Validate required fields
     if (!name || !email || !password) {
         return res.status(400).json({
             success: false,
@@ -446,7 +430,11 @@ app.post('/api/seller/register', asyncHandler(async (req, res) => {
         });
     }
 
-    // 检查邮箱是否已存在
+    const client = await connectDB();
+    const database = client.db("techmart");
+    const sellers = database.collection("sellers");
+
+    // Check if the email already exists
     const existingSeller = await sellers.findOne({ email });
     if (existingSeller) {
         return res.status(400).json({
@@ -455,10 +443,10 @@ app.post('/api/seller/register', asyncHandler(async (req, res) => {
         });
     }
 
-    // 加密密码
+    // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 创建新卖家
+    // Create new seller
     const newSeller = {
         name,
         email,
@@ -467,10 +455,10 @@ app.post('/api/seller/register', asyncHandler(async (req, res) => {
         updatedAt: new Date()
     };
 
-    // 保存到数据库
+    // Save to the database
     await sellers.insertOne(newSeller);
 
-    // 返回成功消息（不包含密码）
+    // Return success message (without password)
     const sellerWithoutPassword = { ...newSeller };
     delete sellerWithoutPassword.password;
 
@@ -481,18 +469,11 @@ app.post('/api/seller/register', asyncHandler(async (req, res) => {
     });
 }));
 
-// 添加卖家登录路由
+// Seller login endpoint
 app.post('/api/seller/login', asyncHandler(async (req, res) => {
-    console.log('Login request received:', req.body);  // Add this line to log the incoming request data
-
-    const client = await connectDB();
-    const database = client.db("techmart");
-    const sellers = database.collection("sellers");
-
     const { email, password } = req.body;
 
-    
-    // 验证必填字段
+    // Validate required fields
     if (!email || !password) {
         return res.status(400).json({
             success: false,
@@ -500,7 +481,11 @@ app.post('/api/seller/login', asyncHandler(async (req, res) => {
         });
     }
 
-    // 查找卖家
+    const client = await connectDB();
+    const database = client.db("techmart");
+    const sellers = database.collection("sellers");
+
+    // Find the seller in the database
     const seller = await sellers.findOne({ email });
     if (!seller) {
         return res.status(401).json({
@@ -509,7 +494,7 @@ app.post('/api/seller/login', asyncHandler(async (req, res) => {
         });
     }
 
-    // 验证密码
+    // Verify password
     const isValidPassword = await bcrypt.compare(password, seller.password);
     if (!isValidPassword) {
         return res.status(401).json({
@@ -518,7 +503,7 @@ app.post('/api/seller/login', asyncHandler(async (req, res) => {
         });
     }
 
-    // 不要在响应中包含密码
+    // Return success message (without password)
     const sellerWithoutPassword = { ...seller };
     delete sellerWithoutPassword.password;
 
@@ -528,7 +513,6 @@ app.post('/api/seller/login', asyncHandler(async (req, res) => {
         seller: sellerWithoutPassword
     });
 }));
-
 
 
 // 添加到购物车
