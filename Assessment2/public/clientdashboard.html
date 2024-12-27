@@ -226,29 +226,44 @@
     </div>
 
     <script>
-        
-
-        // Load dashboard data
         async function loadDashboardData() {
-            try {
-                const seller = JSON.parse(sellerData);
-                document.getElementById('sellerInfo').textContent = `Welcome, ${seller.name}`;
+            const sellerData = localStorage.getItem('sellerData');
+            
+            // Check if the user is logged in
+            if (!sellerData) {
+                alert('You are not logged in!');
+                window.location.href = 'clientlogin.html';
+                return;
+            }
 
-                const response = await fetch('http://127.0.0.1:5501/api/seller/dashboard', {
+            const seller = JSON.parse(sellerData);
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/sellers/dashboard', {
+                    method: 'GET',
                     headers: {
-                        'Authorization': `Bearer ${seller.token}`
-                    }
+                        'Content-Type': 'application/json',
+                        'sellerId': seller._id  // Send seller ID in header
+                    },
+                    credentials: 'include',  // Include cookies
+                    mode: 'cors'
                 });
 
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Failed to fetch dashboard data');
+                }
                 const data = await response.json();
 
                 // Update stats
+                document.getElementById('sellerInfo').textContent = `Welcome, ${seller.name}`;
                 document.getElementById('totalSales').textContent = data.totalSales.toFixed(2);
                 document.getElementById('totalOrders').textContent = data.totalOrders;
                 document.getElementById('totalProducts').textContent = data.totalProducts;
                 document.getElementById('totalCustomers').textContent = data.totalCustomers;
 
                 // Update recent orders
+                if (data.recentOrders && data.recentOrders.length > 0) {
                 const ordersHTML = data.recentOrders.map(order => `
                     <tr>
                         <td>${order._id}</td>
@@ -257,26 +272,29 @@
                         <td>$${order.total.toFixed(2)}</td>
                         <td>
                             <span class="status-badge status-${order.status.toLowerCase()}">
-                                ${order.status}
+                                ${order.status||'Unknown'}
                             </span>
                         </td>
                     </tr>
                 `).join('');
-
                 document.getElementById('recentOrders').innerHTML = ordersHTML;
-
+                } else {
+                    document.getElementById('recentOrders').innerHTML = '<tr><td colspan="5">No recent orders found</td></tr>';
+                }
             } catch (error) {
                 console.error('Error loading dashboard:', error);
+                alert('Failed to load dashboard data. Please try again later.');
             }
         }
 
         function logout() {
             localStorage.removeItem('sellerData');
-            window.location.href = 'login.html';
+            window.location.href = 'clientlogin.html';
         }
 
-        // Load dashboard when page loads
+        // Load dashboard data when the page loads
         window.onload = loadDashboardData;
     </script>
+        
 </body>
 </html>

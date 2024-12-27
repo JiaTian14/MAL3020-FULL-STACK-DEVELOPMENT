@@ -1,26 +1,16 @@
 const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcryptjs');
-const bodyParser = require('body-parser');
 const cors = require('cors');
-const mongoose = require('mongoose');
-const CartModel = require('./Assessment2/models/cart');  // Update the path as needed
-
-const { v4: uuidv4 } = require('uuid');
-
-// First define the APIError class
-class APIError extends Error {
-    constructor(statusCode, message) {
-      super(message);
-      this.name = 'APIError';
-      this.statusCode = statusCode;
-    }
-  }
-// Middleware
 const app = express();
+const mongoose = require('mongoose');
+const { v4: uuidv4 } = require('uuid');
+const bodyParser = require('body-parser');
+const session = require('express-session');
+
+// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(bodyParser.json());
 app.use(express.static('public'));
 app.use(cors({
     origin: '*',
@@ -39,15 +29,7 @@ async function connectDB() {
     }
     return client;
 }
-// 在 Mongoose 连接选置中添加
-mongoose.connect(uri, {
-    serverSelectionTimeoutMS: 30000,
-    connectTimeoutMS: 30000
-  })
-  .then(() => console.log('Connected to MongoDB Atlas'))
-  .catch(err => console.log('Connection error:', err));
 
-  
 // Helper function for error handling
 const asyncHandler = (fn) => (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);
@@ -65,18 +47,16 @@ app.get('/api/orders/:userId', asyncHandler(async (req, res) => {
     res.json(userOrders);
 }));
 
-
 // Get user's cart
 app.get('/api/cart/:userId', async (req, res) => {
-    const { userId } = req.params;
-    console.log("Received userId:", userId); // Debugging line
-    try {
-        const cart = await CartModel.findOne({ userId: userId });
-        if (!cart) {
-            return res.status(404).json({ success: false, message: 'Cart not found for this user ID' });
-        }
-        res.json({ success: true, data: cart });
-    
+  try {
+      const { userId } = req.params;
+      if (!userId) {
+          return res.status(400).json({
+              success: false,
+              message: 'User ID is required'
+          });
+      }
 
       const ObjectId = require('mongodb').ObjectId;
     if (!ObjectId.isValid(userId)) {
@@ -92,8 +72,13 @@ app.get('/api/cart/:userId', async (req, res) => {
       const users = database.collection("users");
 
       // 查询购物车数据
-     
-
+      const cart = await carts.findOne({ userId });
+      if (!cart) {
+          return res.status(404).json({
+              success: false,
+              message: 'Cart not found',
+          });
+      }
 
       // Fetch cart and user data
       const user = await users.findOne({ userId });
@@ -309,211 +294,126 @@ app.get('/api/products/:id', async (req, res) => {
 });
 
 // ---------- POST Routes ----------
-// User registration endpoint
-app.post('/api/users/register', asyncHandler(async (req, res) => {
+// Register a new user
+app.post('/api/register', asyncHandler(async (req, res) => {
     const { username, email, password } = req.body;
-  
-    if (!username || !email || !password) {
-      throw new APIError(400, 'All fields are required.');
-    }
-  
+
+  if (!username || !email || !password) {
+    throw new APIError(400, 'All fields are required.');
+  }
     const client = await connectDB();
-    const database = client.db("techmart");
-    const users = database.collection("users");
-  
-    // 检查是否已有相同的 email
+    const users = client.db("techmart").collection("users");
     const existingUser = await users.findOne({ email });
     if (existingUser) {
-      throw new APIError(400, 'Email already in use.');
+    throw new APIError(400, 'Email already in use.');
     }
-  
-    // 哈希处理密码
-    const hashedPassword = await bcrypt.hash(password, 10);
-  
-     // Generate a unique userId
-     const userId = uuidv4();
+    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+     // 保存用户
+  const newUser = {
+    username,
+    email,
+    password: hashedPassword,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 
-    // 保存用户
-    const newUser = {
-      userId,  
-      username,
-      email,
-      password: hashedPassword,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-  
-    const result = await users.insertOne(newUser);
-  
-    res.json({
-      success: true,
-      message: 'User registered successfully.',
-      data: { id: result.insertedId, username, email },
-    });
-  }));
-  
-//post user Login
-app.post('/api/users/login', asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
-    
-    console.log('Login attempt for email:', email); // Debug log
+  const result = await users.insertOne(newUser);
+  res.json({
+    success: true,
+    message: 'User registered successfully.',
+    data: { id: result.insertedId, username, email },
+  });
+}));
 
-    if (!email || !password) {
-        throw new APIError(400, 'Email and password are required.');
-    }
-
+// User login
+app.post('/api/users/login', async (req, res) => {
     try {
-    const client = await connectDB();
-    const database = client.db("techmart");
-    const users = database.collection("users");
-
-    // 在数据库中查找用户
-    const user = await users.findOne({ email });
-    
-    if (!user) {
-        throw new APIError(404, 'User not found.');
-    }
-    
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-        throw new APIError(401, 'Invalid password.');
-    }
-
-    // Successful login response
-    console.log('Login successful, sending response...');
-    res.status(200).json({
-        success: true,
-        message: 'Login successful.',
-        data: {
-            id: user._id,
-            username: user.username,
-            email: user.email,
-      },
-    });
-} catch (error) {
-    console.error('Server error:', error);
-    return res.status(500).json({
-        success: false,
-        error: 'An error occurred during login'
-    });
-}
-  }));
-// Error handling middleware - place this after all routes
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    
-    if (err instanceof APIError) {
-        res.status(err.statusCode).json({
-            success: false,
-            error: err.message
-        });
-    } else {
-        res.status(500).json({
-            success: false,
-            error: 'Internal Server Error'
-        });
-    }
-});  
-
-
-// ---------- POST Routes ----------
-
-// Seller registration endpoint
-app.post('/api/seller/register', asyncHandler(async (req, res) => {
-    const { name, email, password } = req.body;
-
-    // Validate required fields
-    if (!name || !email || !password) {
-        return res.status(400).json({
-            success: false,
-            message: 'All fields are required'
-        });
-    }
-
-    const client = await connectDB();
-    const database = client.db("techmart");
-    const sellers = database.collection("sellers");
-
-    // Check if the email already exists
-    const existingSeller = await sellers.findOne({ email });
-    if (existingSeller) {
-        return res.status(400).json({
-            success: false,
-            message: 'Email already registered'
-        });
-    }
-
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create new seller
-    const newSeller = {
-        name,
-        email,
-        password: hashedPassword,
-        createdAt: new Date(),
-        updatedAt: new Date()
-    };
-
-    // Save to the database
-    await sellers.insertOne(newSeller);
-
-    // Return success message (without password)
-    const sellerWithoutPassword = { ...newSeller };
-    delete sellerWithoutPassword.password;
-
-    res.status(201).json({
-        success: true,
-        message: 'Seller registered successfully',
-        seller: sellerWithoutPassword
-    });
-}));
-
-// Seller login endpoint
-app.post('/api/seller/login', asyncHandler(async (req, res) => {
+        console.log('Login request received:', req.body);
     const { email, password } = req.body;
+        
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email and password are required'
+            });
+        }
 
-    // Validate required fields
-    if (!email || !password) {
-        return res.status(400).json({
-            success: false,
-            message: 'Email and password are required'
-        });
-    }
+        const client = await connectDB();
+        const database = client.db("techmart");
 
-    const client = await connectDB();
-    const database = client.db("techmart");
-    const sellers = database.collection("sellers");
+        const users = database.collection("users");
+        const profiles = database.collection("profiles");
+        const carts = database.collection("carts");
+        
+        // 生成唯一 userId
+        const userId = uuidv4();
 
-    // Find the seller in the database
-    const seller = await sellers.findOne({ email });
-    if (!seller) {
-        return res.status(401).json({
-            success: false,
-            message: 'Invalid email or password'
-        });
-    }
+        // 检查 email 是否已存在
+        const existingUser = await users.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email already exists',
+            });
+        }
 
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, seller.password);
-    if (!isValidPassword) {
-        return res.status(401).json({
-            success: false,
-            message: 'Invalid email or password'
-        });
-    }
+        // 使用 bcrypt 比较密码
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        console.log('Password validation:', isPasswordValid ? 'Valid' : 'Invalid');
 
-    // Return success message (without password)
-    const sellerWithoutPassword = { ...seller };
-    delete sellerWithoutPassword.password;
+        if (!isPasswordValid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password'
+            });
+        }
 
-    res.status(200).json({
-        success: true,
-        message: 'Login successful',
-        seller: sellerWithoutPassword
-    });
-}));
+        // 创建用户
+        const newUser = {
+          userId,
+          name,
+          email,
+          createdAt: new Date(),
+      };
+      await users.insertOne(newUser);
 
+      // 在 profiles 集合中创建 profile 数据
+      const newProfile = {
+          userId,
+          name,
+          email,
+          createdAt: new Date(),
+          bio: '',
+          avatar: '',
+      };
+      await profiles.insertOne(newProfile);
+
+      // 在 carts 集合中初始化空购物车
+      const newCart = {
+          userId,
+          products: [],
+          createdAt: new Date(),
+      };
+      await carts.insertOne(newCart);
+
+      res.status(201).json({
+          success: true,
+          message: 'User, profile, and cart created successfully',
+          data: {
+              user: newUser,
+              profile: newProfile,
+              cart: newCart,
+          },
+      });
+  } catch (error) {
+      console.error('Error creating user:', error);
+      res.status(500).json({
+          success: false,
+          message: 'Error creating user',
+          error: error.message,
+      });
+  }
+});
 
 // 添加到购物车
 app.post('/api/cart/:userId/add', async (req, res) => {
@@ -635,47 +535,130 @@ app.post('/api/cart/:userId/add', async (req, res) => {
 
 // 更新购物车商品数量
 app.post('/api/cart/:userId/update', async (req, res) => {
+  try {
       const { userId } = req.params;
       const { productId, newQuantity } = req.body;
 
-      try {
-        const cart = await CartModel.findOne({ userId });
-        if (!cart) {
-            return res.status(404).json({ success: false, message: 'Cart not found' });
-        }
+      // 输入验证
+      if (!userId || !productId || typeof newQuantity !== 'number') {
+          return res.status(400).json({
+              success: false,
+              message: 'Missing or invalid required fields'
+          });
+      }
 
-        const product = cart.products.find(p => p.productId.toString() === productId);
-        if (product) {
-            product.quantity = quantity;
-            await cart.save();
-            return res.json({ success: true });
-        }
+      if (newQuantity < 0) {
+          return res.status(400).json({
+              success: false,
+              message: 'Quantity cannot be negative'
+          });
+      }
 
-        return res.status(404).json({ success: false, message: 'Product not found in cart' });
-    } catch (error) {
-        console.error('Error updating cart:', error);
-        return res.status(500).json({ success: false, message: 'Failed to update cart' });
-    }
+      const client = await connectDB();
+      const database = client.db("techmart");
+      const carts = database.collection("carts");
+      const products = database.collection("products");
+
+      // 检查产品库存
+      const product = await products.findOne({ _id: new ObjectId(productId) });
+      if (!product) {
+          return res.status(404).json({
+              success: false,
+              message: 'Product not found'
+          });
+      }
+
+      if (newQuantity > product.stock) {
+          return res.status(400).json({
+              success: false,
+              message: 'Requested quantity exceeds available stock'
+          });
+      }
+
+      if (newQuantity === 0) {
+          // 如果数量为0，删除商品
+          await carts.updateOne(
+              { userId },
+              { 
+                  $pull: { products: { productId } },
+                  $set: { updatedAt: new Date() }
+              }
+          );
+      } else {
+          // 更新数量
+          await carts.updateOne(
+              { userId, "products.productId": productId },
+              { 
+                  $set: { 
+                      "products.$.quantity": newQuantity,
+                      updatedAt: new Date()
+                  }
+              }
+          );
+      }
+
+      // 获取更新后的购物车
+      const updatedCart = await carts.findOne({ userId });
+
+      res.json({
+          success: true,
+          message: 'Cart updated successfully',
+          data: updatedCart
+      });
+
+  } catch (error) {
+      console.error('Error updating cart:', error);
+      res.status(500).json({
+          success: false,
+          message: 'Error updating cart',
+          error: error.message
+      });
+  }
 });
 
 // 从购物车中移除商品
-app.post('/api/cart/:userId/remove', async (req, res) => {
+app.delete('/api/cart/:userId/remove', async (req, res) => {
+  try {
       const { userId } = req.params;
       const { productId } = req.body;
 
-      try {
-        const cart = await CartModel.findOne({ userId });
-        if (!cart) {
-            return res.status(404).json({ success: false, message: 'Cart not found' });
-        }
+      // 输入验证
+      if (!userId || !productId) {
+          return res.status(400).json({
+              success: false,
+              message: 'User ID and Product ID are required'
+          });
+      }
 
-        cart.products = cart.products.filter(p => p.productId.toString() !== productId);
-        await cart.save();
-        return res.json({ success: true });
-    } catch (error) {
-        console.error('Error removing item from cart:', error);
-        return res.status(500).json({ success: false, message: 'Failed to remove item from cart' });
-    }
+      const client = await connectDB();
+      const database = client.db("techmart");
+      const carts = database.collection("carts");
+
+      await carts.updateOne(
+          { userId },
+          { 
+              $pull: { products: { productId } },
+              $set: { updatedAt: new Date() }
+          }
+      );
+
+      // 获取更新后的购物车
+      const updatedCart = await carts.findOne({ userId });
+
+      res.json({
+          success: true,
+          message: 'Product removed from cart successfully',
+          data: updatedCart
+      });
+
+  } catch (error) {
+      console.error('Error removing product from cart:', error);
+      res.status(500).json({
+          success: false,
+          message: 'Error removing product from cart',
+          error: error.message
+      });
+  }
 });
 
 // Submit checkout
@@ -696,7 +679,6 @@ app.post('/api/profile/update', async (req, res) => {
         const client = await connectDB();
         const database = client.db("techmart");
         const users = database.collection("users");
-        const profiles = database.collection("profiles");
 
         // 如果包含密码，需要加密
         if (updateData.password && updateData.password.trim() !== '') {
@@ -756,9 +738,7 @@ app.post('/api/profile/update', async (req, res) => {
 // Change password
 app.post('/api/profile/changePassword', asyncHandler(async (req, res) => {
     const client = await connectDB();
-    const database = client.db("techmart");
-    const users = database.collection("users");
-    const profiles = database.collection("profiles");
+    const users = client.db("techmart").collection("users");
     const { userId, newPassword } = req.body;
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await users.updateOne({ _id: new ObjectId(userId) }, { $set: { password: hashedPassword } });
@@ -843,6 +823,158 @@ app.post('/api/users', async (req, res) => {
       });
   }
 });
+
+// 添加卖家注册路由
+app.post('/api/sellers/register', async (req, res) => {
+    try {
+        const client = await connectDB();
+        const database = client.db("techmart");
+        const sellers = database.collection("sellers");
+        
+        const { name, email, password } = req.body;
+
+        // 验证必填字段
+        if (!name || !email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: 'All fields are required'
+            });
+        }
+
+        // 检查邮箱是否已存在
+        const existingSeller = await sellers.findOne({ email });
+        if (existingSeller) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email already registered'
+            });
+        }
+
+        // 加密密码
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // 创建新卖家
+        const newSeller = {
+            name,
+            email,
+            password: hashedPassword,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+
+        // 保存到数据库
+        await sellers.insertOne(newSeller);
+        
+        // 返回成功消息（不包含密码）
+        const sellerWithoutPassword = { ...newSeller };
+        delete sellerWithoutPassword.password;
+        
+        res.status(201).json({
+            success: true,
+            message: 'Seller registered successfully',
+            seller: sellerWithoutPassword
+        });
+    } catch (error) {
+        console.error('Registration error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error registering seller'
+        });
+    }
+});
+
+// Use express-session middleware
+app.use(session({
+    secret: 'b896fc7c8b4e3b764cf45744bd24e02a99a03cd1b784209c1fc282e19a9b1b10',  // Replace with a strong secret key
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false } // Set secure: true for HTTPS
+}));
+
+// 添加卖家登录路由
+app.post('/api/sellers/login', asyncHandler(async (req, res) => {
+  const client = await connectDB();
+  const database = client.db("techmart");
+  const sellers = database.collection("sellers");
+  
+  const { email, password } = req.body;
+
+  // 查找卖家
+  const seller = await sellers.findOne({ email });
+  if (!seller) {
+    throw new APIError(401, 'Invalid email or password');
+  }
+
+  // 验证密码
+  const isValidPassword = await bcrypt.compare(password, seller.password);
+  if (!isValidPassword) {
+    throw new APIError(401, 'Invalid email or password');
+  }
+
+  // 不要在响应中包含密码
+  const sellerWithoutPassword = { ...seller };
+  delete sellerWithoutPassword.password;
+
+// Save seller's ID in the session
+req.session.sellerId = seller._id;
+
+  res.json({
+    success: true,
+    message: 'Login successful'
+  });
+}));
+
+
+// API endpoint to fetch dashboard data for the logged-in seller
+app.get('/api/sellers/dashboard', async (req, res) => {
+    const sellerId = req.session.sellerId;  // Assuming seller ID is stored in session
+    
+    if (!sellerId) {
+        return res.status(401).json({ message: 'You are not logged in' });
+    }
+
+    try {
+        const client = await connectDB();
+        const database = client.db("techmart");
+
+        const sellerObjectId = new ObjectId(sellerId);
+
+        // Fetch total sales (sum of all order totals for this seller)
+        const ordersCollection = database.collection('orders');
+        const productsCollection = database.collection('products');
+
+        const totalSalesResult = await ordersCollection.aggregate([
+            { $match: { sellerId: sellerObjectId } },
+            { $group: { _id: null, totalSales: { $sum: "$totalPrice" } } }
+        ]).toArray();
+        const [totalOrders, totalProducts, distinctCustomers, recentOrders] = await Promise.all([
+            ordersCollection.countDocuments({ sellerId: sellerObjectId }),
+            productsCollection.countDocuments({ sellerId: sellerObjectId }),
+            ordersCollection.distinct('customerName', { sellerId: sellerObjectId }),
+            ordersCollection.find({ sellerId: sellerObjectId })
+                .sort({ createdAt: -1 })
+                .limit(5)
+                .toArray()
+        ]); 
+        await client.close();
+
+        // Send the dashboard data as a response
+        res.json({
+            totalSales: totalSalesResult[0]?.totalSales || 0,
+            totalOrders,
+            totalProducts,
+            totalCustomers: distinctCustomers.length,
+            recentOrders
+        });
+    } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        res.status(500).json({ 
+            message: 'Failed to load dashboard data',
+            error: error.message 
+        });
+    }
+});
+
 
 
 // ---------- Error Handling ----------

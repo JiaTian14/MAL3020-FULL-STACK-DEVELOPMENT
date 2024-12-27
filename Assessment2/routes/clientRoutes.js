@@ -40,32 +40,27 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// Login endpoint
-router.post('/login', async (req, res) => {
+router.post("/login", async (req, res) => {
     const { email, password } = req.body;
-
     try {
-        // Check if the seller exists by email
-        const seller = await Seller.findOne({ email });
-        if (!seller) {
-            return res.status(400).json({ error: 'Invalid email or password' });
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(401).json({ message: "User not found" });
         }
 
-        // Compare provided password with the hashed password
-        const isPasswordValid = await bcrypt.compare(password, seller.password);
-        if (!isPasswordValid) {
-            return res.status(400).json({ error: 'Invalid email or password' });
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ message: "Incorrect password" });
         }
 
-        // Generate JWT token
-        const token = jwt.sign({ sellerId: seller._id }, JWT_SECRET, { expiresIn: '1h' });
-
-        // Send response with the token
-        res.status(200).json({ message: 'Login successful', token });
-    } catch (err) {
-        console.error('Error logging in seller:', err);
-        res.status(500).json({ error: 'Internal server error' });
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+        res.status(200).json({ token });
+    } catch (error) {
+        console.error("Login error:", error);
+        res.status(500).json({ message: "Something went wrong." });
     }
 });
+
+
 
 module.exports = router;

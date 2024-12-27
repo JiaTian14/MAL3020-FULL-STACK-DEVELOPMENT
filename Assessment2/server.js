@@ -3,7 +3,10 @@ const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcryptjs');
 const cors = require('cors');
 const app = express();
+const mongoose = require('mongoose');
 const { v4: uuidv4 } = require('uuid');
+const bodyParser = require('body-parser');
+const session = require('express-session');
 
 // Middleware
 app.use(express.json());
@@ -822,7 +825,7 @@ app.post('/api/users', async (req, res) => {
 });
 
 // 添加卖家注册路由
-app.post('/api/seller/register', async (req, res) => {
+app.post('/api/sellers/register', async (req, res) => {
     try {
         const client = await connectDB();
         const database = client.db("techmart");
@@ -880,8 +883,16 @@ app.post('/api/seller/register', async (req, res) => {
     }
 });
 
+// Use express-session middleware
+app.use(session({
+    secret: 'b896fc7c8b4e3b764cf45744bd24e02a99a03cd1b784209c1fc282e19a9b1b10',  // Replace with a strong secret key
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false } // Set secure: true for HTTPS
+}));
+
 // 添加卖家登录路由
-app.post('/api/seller/login', asyncHandler(async (req, res) => {
+app.post('/api/sellers/login', asyncHandler(async (req, res) => {
   const client = await connectDB();
   const database = client.db("techmart");
   const sellers = database.collection("sellers");
@@ -904,12 +915,67 @@ app.post('/api/seller/login', asyncHandler(async (req, res) => {
   const sellerWithoutPassword = { ...seller };
   delete sellerWithoutPassword.password;
 
+// Save seller's ID in the session
+req.session.sellerId = seller._id;
+
   res.json({
     success: true,
-    message: 'Login successful',
-    seller: sellerWithoutPassword
+    message: 'Login successful'
   });
 }));
+
+
+// API endpoint to fetch dashboard data for the logged-in seller
+app.get('/api/sellers/dashboard', async (req, res) => {
+    const sellerId = req.session.sellerId;  // Assuming seller ID is stored in session
+    
+    if (!sellerId) {
+        return res.status(401).json({ message: 'You are not logged in' });
+    }
+
+    try {
+        const client = await connectDB();
+        const database = client.db("techmart");
+
+        const sellerObjectId = new ObjectId(sellerId);
+
+        // Fetch total sales (sum of all order totals for this seller)
+        const ordersCollection = database.collection('orders');
+        const productsCollection = database.collection('products');
+
+        const totalSalesResult = await ordersCollection.aggregate([
+            { $match: { sellerId: sellerObjectId } },
+            { $group: { _id: null, totalSales: { $sum: "$totalPrice" } } }
+        ]).toArray();
+        const [totalOrders, totalProducts, distinctCustomers, recentOrders] = await Promise.all([
+            ordersCollection.countDocuments({ sellerId: sellerObjectId }),
+            productsCollection.countDocuments({ sellerId: sellerObjectId }),
+            ordersCollection.distinct('customerName', { sellerId: sellerObjectId }),
+            ordersCollection.find({ sellerId: sellerObjectId })
+                .sort({ createdAt: -1 })
+                .limit(5)
+                .toArray()
+        ]); 
+        await client.close();
+
+        // Send the dashboard data as a response
+        res.json({
+            totalSales: totalSalesResult[0]?.totalSales || 0,
+            totalOrders,
+            totalProducts,
+            totalCustomers: distinctCustomers.length,
+            recentOrders
+        });
+    } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        res.status(500).json({ 
+            message: 'Failed to load dashboard data',
+            error: error.message 
+        });
+    }
+});
+
+
 
 // ---------- Error Handling ----------
 app.use((err, req, res, next) => {

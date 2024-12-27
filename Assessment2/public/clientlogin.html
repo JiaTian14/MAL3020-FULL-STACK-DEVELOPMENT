@@ -215,19 +215,34 @@
                     body: JSON.stringify({ email, password })
                 });
 
-                const data = await response.json();
-                if (response.ok) {
-                    alert('Login successful!');
-                    console.log('JWT Token:', data.token);
-                    localStorage.setItem('token', data.token);
-                    window.location.href = 'clientdashboard.html';  // Redirect to dashboard page
-                } else {
-                    document.getElementById('errorMessage').textContent = data.error;
-                    document.getElementById('errorMessage').style.display = 'block';
+                // Check if the response is OK (status in the range 200-299)
+                if (!response.ok) {
+                    // If the response is not OK, throw an error
+                    const errorData = await response.json(); // Parse the error response
+                    throw new Error(errorData.message || "Login failed");
                 }
+                
+                     // If the response is OK, parse the JSON data
+                    const data = await response.json();
+                    // Check if the session was established successfully
+                    if (data.success) {
+                        alert("Login successful!");
+
+                        // Optionally, save seller info in local storage for future use
+                        const sellerData = {
+                            name: data.seller.name
+                        };
+                    localStorage.setItem('sellerData', JSON.stringify(sellerData));
+
+                    window.location.href = 'clientdashboard.html';  // Redirect to dashboard page
+
+                } else {
+                    throw new Error("Login failed: " + data.message);
+                }
+
             } catch (err) {
                 console.error('Error:', err);
-                document.getElementById('errorMessage').textContent = 'Something went wrong.';
+                document.getElementById('errorMessage').textContent = err.message;
                 document.getElementById('errorMessage').style.display = 'block';
             }
         });

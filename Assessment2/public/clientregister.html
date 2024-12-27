@@ -230,7 +230,7 @@
             }
     
             try {
-                const response = await fetch('http://localhost:3000/api/seller/register', { // Ensure the endpoint is correct
+                const response = await fetch('http://localhost:3000/api/sellers/register', { // Ensure the endpoint is correct
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, email, password }) // Removed shopName as it is not in the server code
