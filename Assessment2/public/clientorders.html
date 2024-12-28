@@ -309,121 +309,37 @@
     </div>
 
     <script>
-        let currentOrderId = null;
+    async function loadOrders() {
+        try {
+            const response = await fetch('http://localhost:3000/api/orders'); // Adjust the URL as needed
+            const orders = await response.json();
 
-        async function loadOrders() {
-            try {
-                const response = await fetch('http://127.0.0.1:5500/api/orders');
-                const orders = await response.json();
-
-                const ordersTableBody = document.getElementById('ordersTableBody');
-                ordersTableBody.innerHTML = orders.map(order => `
-                    <tr>
-                        <td>${order._id}</td>
-                        <td>${order.shippingInfo.fullName}</td>
-                        <td>${new Date(order.date).toLocaleDateString()}</td>
-                        <td>$${order.total.toFixed(2)}</td>
-                        <td>
-                            <span class="status-badge status-${order.status.toLowerCase()}">
-                                ${order.status}
-                            </span>
-                        </td>
-                        <td>
-                            <button class="action-btn view-btn" onclick="viewOrder('${order._id}')">
-                                View Details
-                            </button>
-                        </td>
-                    </tr>
-                `).join('');
-
-            } catch (error) {
-                console.error('Error loading orders:', error);
-            }
+            const ordersTableBody = document.getElementById('ordersTableBody');
+            ordersTableBody.innerHTML = orders.map(order => `
+                <tr>
+                    <td>${order._id.$oid}</td>
+                    <td>${order.userId}</td>
+                    <td>${order.products.map(product => product.name).join(', ')}</td>
+                    <td>${order.products.map(product => product.quantity.$numberInt).join(', ')}</td>
+                    <td>${order.products.map(product => `$${(product.price.$numberDouble).toFixed(2)}`).join(', ')}</td>
+                    <td>$${(order.total.$numberDouble).toFixed(2)}</td>
+                    <td>
+                        ${order.shippingInfo.fullName}, ${order.shippingInfo.address}, ${order.shippingInfo.city}, ${order.shippingInfo.postalCode}
+                    </td>
+                    <td>${order.paymentMethod}</td>
+                    <td>${order.status}</td>
+                    <td>${new Date(order.date.$date.$numberLong).toLocaleDateString()}</td>
+                </tr>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading orders:', error);
+            alert('Failed to load orders. Please try again later.');
         }
+    }
 
-        async function viewOrder(orderId) {
-            try {
-                currentOrderId = orderId;
-                const response = await fetch(`http://127.0.0.1:5500/api/orders/${orderId}`);
-                const order = await response.json();
-
-                const orderDetails = document.getElementById('orderDetails');
-                orderDetails.innerHTML = `
-                    <div class="order-section">
-                        <h3>Products</h3>
-                        <ul class="product-list">
-                            ${order.products.map(product => `
-                                <li class="product-item">
-                                    <span>${product.name} x ${product.quantity}</span>
-                                    <span>$${(product.price * product.quantity).toFixed(2)}</span>
-                                </li>
-                            `).join('')}
-                        </ul>
-                        <div class="total">
-                            <strong>Total: $${order.total.toFixed(2)}</strong>
-                        </div>
-                    </div>
-                    <div class="order-section">
-                        <h3>Shipping Information</h3>
-                        <div class="shipping-info">
-                            <p>${order.shippingInfo.fullName}</p>
-                            <p>${order.shippingInfo.address}</p>
-                            <p>${order.shippingInfo.city}, ${order.shippingInfo.postalCode}</p>
-                        </div>
-                    </div>
-                    <div class="order-section">
-                        <h3>Status</h3>
-                        <select id="orderStatus">
-                            <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>Pending</option>
-                            <option value="Processing" ${order.status === 'Processing' ? 'selected' : ''}>Processing</option>
-                            <option value="Shipped" ${order.status === 'Shipped' ? 'selected' : ''}>Shipped</option>
-                            <option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
-                            <option value="Cancelled" ${order.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
-                        </select>
-                    </div>
-                `;
-
-                document.getElementById('orderModal').style.display = 'block';
-
-            } catch (error) {
-                console.error('Error loading order details:', error);
-            }
-        }
-
-        async function updateOrderStatus() {
-            try {
-                const status = document.getElementById('orderStatus').value;
-                
-                const response = await fetch(`http://127.0.0.1:5500/api/orders/${currentOrderId}/status`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ status })
-                });
-
-                if (response.ok) {
-                    closeModal();
-                    loadOrders();
-                }
-            } catch (error) {
-                console.error('Error updating order status:', error);
-            }
-        }
-
-        function closeModal() {
-            document.getElementById('orderModal').style.display = 'none';
-            currentOrderId = null;
-        }
-
-        function filterOrders() {
-            const status = document.getElementById('statusFilter').value;
-            const date = document.getElementById('dateFilter').value;
-            // Implement filtering logic here
-        }
-
-        // Load orders when page loads
-        window.onload = loadOrders;
-    </script>
+    // Load orders on page load
+    window.onload = loadOrders;
+</script>
+    
 </body>
 </html>

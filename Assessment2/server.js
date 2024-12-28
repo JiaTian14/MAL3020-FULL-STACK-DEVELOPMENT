@@ -10,6 +10,8 @@ const session = require('express-session');
 
 // Middleware
 app.use(express.json());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 app.use(cors({
@@ -974,6 +976,73 @@ app.get('/api/sellers/dashboard', async (req, res) => {
         });
     }
 });
+
+// Use product routes
+app.use('/api/products', productRoutes);
+// Update product endpoint
+app.put('/api/products/:id', async (req, res) => {
+    const { id } = req.params;
+    const { name, description, price, stock, category, image } = req.body;
+
+    try {
+        const updatedProduct = await Product.findByIdAndUpdate(
+            id,
+            { name, description, price, stock, category, image },
+            { new: true }
+        );
+        if (!updatedProduct) {
+            return res.status(404).json({ success: false, message: 'Product not found' });
+        }
+        res.status(200).json({ success: true, data: updatedProduct });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Failed to update product' });
+    }
+});
+
+
+// DELETE a product by ID
+app.delete('/api/products/:id', async (req, res) => {
+    try {
+        const deletedProduct = await Product.findByIdAndDelete(req.params.id);
+
+        if (!deletedProduct) {
+            return res.status(404).json({ message: 'Product not found' });
+        }
+
+        res.status(200).json({ message: 'Product deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to delete product', error: error.message });
+    }
+});
+
+
+app.post('/api/products', async (req, res) => {
+    try {
+        const newProduct = new Product(req.body);
+
+        // Save the new product to the database
+        const savedProduct = await newProduct.save();
+
+        res.status(201).json({ success: true, data: savedProduct });
+    } catch (error) {
+        console.error('Error adding product:', error);
+        res.status(500).json({ success: false, message: 'Failed to add product' });
+    }
+});
+
+// Get all orders for seller
+app.get('/api/orders', asyncHandler(async (req, res) => {
+    try {
+        const client = await connectDB(); // Connect to DB
+        const orders = client.db("techmart").collection("orders");
+        const allOrders = await orders.find().toArray(); // Fetch all orders
+        res.json(allOrders); // Send the orders as JSON
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error fetching orders' });
+    }
+}));
 
 
 

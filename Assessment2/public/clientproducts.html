@@ -253,7 +253,7 @@
     </div>
 
     <!-- Product Modal -->
-    <div id="productModal" class="modal">
+    <div id="productModal" class="modal" style="display: none;">
         <div class="modal-content">
             <h2 id="modalTitle">Add Product</h2>
             <form id="productForm">
@@ -280,6 +280,7 @@
                         <option value="Laptops">Laptops</option>
                         <option value="Accessories">Accessories</option>
                         <option value="Audio">Audio</option>
+                        <option value="Other">Other</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -287,9 +288,40 @@
                     <input type="url" id="image">
                 </div>
                 <div class="modal-actions">
-                    <button type="button" onclick="closeModal()">Cancel</button>
+                    <button type="button" id="cancelBtn">Cancel</button>
                     <button type="submit">Save</button>
                 </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeEditModal()">&times;</span>
+            <h2>Edit Product</h2>
+            <form id="editForm">
+                <input type="hidden" id="editProductId">
+                <label for="editProductName">Name:</label>
+                <input type="text" id="editProductName" required><br><br>
+        
+                <label for="editProductDescription">Description:</label>
+                <textarea id="editProductDescription" required></textarea><br><br>
+        
+                <label for="editProductPrice">Price:</label>
+                <input type="number" step="0.01" id="editProductPrice" required><br><br>
+        
+                <label for="editProductStock">Stock:</label>
+                <input type="number" id="editProductStock" required><br><br>
+        
+                <label for="editProductCategory">Category:</label>
+                <input type="text" id="editProductCategory" required><br><br>
+        
+                <label for="editProductImage">Image URL:</label>
+                <input type="text" id="editProductImage" required><br><br>
+        
+                <button type="submit">Save Changes</button>
+                <button type="button" onclick="closeModal()">Cancel</button>
             </form>
         </div>
     </div>
@@ -298,67 +330,153 @@
         let currentProductId = null;
 
         async function loadProducts() {
-            try {
-                const response = await fetch('http://127.0.0.1:5500/api/products');
-                const products = await response.json();
+    try {
+        const response = await fetch('http://localhost:3000/api/products');
+        const result = await response.json();
+        console.log('Product data received:', result);
 
-                const productsGrid = document.getElementById('productsGrid');
-                productsGrid.innerHTML = products.map(product => `
-                    <div class="product-card">
-                        <div class="product-image">
-                            <img src="${product.image || 'https://via.placeholder.com/300x200'}" 
-                                 alt="${product.name}">
-                        </div>
-                        <div class="product-info">
-                            <h3 class="product-name">${product.name}</h3>
-                            <div class="product-price">$${product.price.toFixed(2)}</div>
-                            <div class="product-stock">Stock: ${product.stock}</div>
-                            <div class="product-actions">
-                                <button class="edit-btn" onclick="editProduct('${product._id}')">
-                                    <i class="fas fa-edit"></i> Edit
-                                </button>
-                                <button class="delete-btn" onclick="deleteProduct('${product._id}')">
-                                    <i class="fas fa-trash"></i> Delete
-                                </button>
-                            </div>
+        // Check if the response indicates success and contains the data array
+        if (result.success && Array.isArray(result.data)) {
+            const products = result.data; // Access the products array
+            const productsGrid = document.getElementById('productsGrid');
+            
+
+                productsGrid.innerHTML = products.map(product => {
+                    console.log('Processing product:', product);
+                    const productId = product._id ? product._id.$oid || product._id : 'N/A'; // Ensure productId is defined
+                    console.log('Product ID:', productId); // Debug log
+                    // Access the price safely
+                    const price = parseFloat(product.price?.$numberDouble || product.price || 0);
+                    const stock = product.stock?.$numberInt || product.stock || 'N/A';
+
+
+            return `
+                <div class="product-card">
+                    <div class="product-image">
+                        <img src="${product.image || 'https://via.placeholder.com/300x200'}" 
+                             alt="${product.name}">
+                    </div>
+                    <div class="product-info">
+                        <h3 class="product-name">${product.name}</h3>
+                        <div class="product-price">$${price.toFixed(2)}</div>
+                        <div class="product-stock">Stock: ${stock}</div>
+
+                        <div class="product-actions">
+                            <button class="edit-btn" onclick="editProduct('${productId}')">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button class="delete-btn" onclick="deleteProduct('${productId}')">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
                         </div>
                     </div>
-                `).join('');
-
-            } catch (error) {
-                console.error('Error loading products:', error);
-            }
+                </div>
+            `;
+        }).join('');
+    } else {
+            console.error('Unexpected response format:', result);
+            alert('Failed to load products. Please try again.');
         }
 
-        function openModal(productId = null) {
-            currentProductId = productId;
-            document.getElementById('modalTitle').textContent = productId ? 'Edit Product' : 'Add Product';
-            document.getElementById('productModal').style.display = 'block';
-            
-            if (productId) {
-                // Load product data into form
-                loadProductData(productId);
-            }
-        }
 
-        function closeModal() {
-            document.getElementById('productModal').style.display = 'none';
+    } catch (error) {
+        console.error('Error loading products:', error);
+        alert('Unable to fetch products. Check your server connection.');
+    }
+}
+        
+
+// Event listener for product form submission
+document.getElementById('productForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const productData = {
+        name: document.getElementById('name').value,
+        description: document.getElementById('description').value,
+        price: parseFloat(document.getElementById('price').value),
+        stock: parseInt(document.getElementById('stock').value),
+        category: document.getElementById('category').value,
+        image: document.getElementById('image').value
+    };
+
+    const url = currentProductId 
+        ? `http://localhost:3000/api/products/${currentProductId}` 
+        : 'http://localhost:3000/api/products';
+    const method = currentProductId ? 'PUT' : 'POST';
+
+    const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(productData)
+    });
+
+    if (response.ok) {
+        closeModal();
+        loadProducts();  // Reload the list of products
+    }
+});
+
+// Open modal to add/edit product
+function openModal(productId = null) {
+        currentProductId = productId;
+        document.getElementById('modalTitle').textContent = productId ? 'Edit Product' : 'Add Product';
+        document.getElementById('productModal').style.display = 'block';
+
+        if (productId) {
+            loadProductData(productId);
+        } else {
             document.getElementById('productForm').reset();
-            currentProductId = null;
         }
+    }
+
+    // Close modal and reset the form
+function closeModal() {
+    const productModal = document.getElementById('productModal');
+    const editModal = document.getElementById('editModal');
+
+    // Check if the modals are visible and hide them
+    if (productModal) {
+        productModal.style.display = 'none';
+    }
+    if (editModal) {
+        editModal.style.display = 'none';
+    }
+
+    // Reset the forms
+    const productForm = document.getElementById('productForm');
+    const editForm = document.getElementById('editForm');
+    if (productForm) productForm.reset();
+    if (editForm) editForm.reset();
+
+    // Optionally, reset the current product ID if needed
+    currentProductId = null;
+}
+
+// Wait for the DOM to fully load
+document.addEventListener('DOMContentLoaded', function() {
+    // Ensure the cancel button is present and functional
+    const cancelBtn = document.getElementById('cancelBtn');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', closeModal);
+    } else {
+        console.error("Cancel button not found");
+    }
+});
+
+
+
 
         async function loadProductData(productId) {
             try {
-                const response = await fetch(`http://127.0.0.1:5500/api/products/${productId}`);
+                const response = await fetch(`http://localhost:3000/api/products/${productId}`);
                 const product = await response.json();
 
-                document.getElementById('name').value = product.name;
-                document.getElementById('description').value = product.description;
-                document.getElementById('price').value = product.price;
-                document.getElementById('stock').value = product.stock;
-                document.getElementById('category').value = product.category;
-                document.getElementById('image').value = product.image;
+                document.getElementById('editProductId').value = product._id.$oid;
+                document.getElementById('editProductName').value = product.name;
+                document.getElementById('editProductPrice').value = product.price.$numberDouble;
+                document.getElementById('editProductStock').value = product.stock.$numberInt;
 
+                document.getElementById('editModal').style.display = 'block';
             } catch (error) {
                 console.error('Error loading product:', error);
             }
@@ -378,8 +496,8 @@
 
             try {
                 const url = currentProductId 
-                    ? `http://127.0.0.1:5500/api/products/${currentProductId}`
-                    : 'http://127.0.0.1:5500/api/products';
+                    ? `http://localhost:3000/api/products/${currentProductId}`
+                    : 'http://localhost:3000/api/products';
                 
                 const method = currentProductId ? 'PUT' : 'POST';
 
@@ -394,16 +512,118 @@
                 if (response.ok) {
                     closeModal();
                     loadProducts();
+                }else {
+                    const errorData = await response.json();
+                    alert(`Error: ${errorData.message}`);
                 }
             } catch (error) {
                 console.error('Error saving product:', error);
             }
         });
 
+
+        // Add this function to handle editing products
+        async function editProduct(productId) {
+    try {
+        // First, check if productId is valid
+        console.log('Edit product called with productId:', productId);
+        if (!productId) {
+            throw new Error('Product ID is missing');
+        }
+
+        const response = await fetch(`http://localhost:3000/api/products/${productId}`);
+        console.log('API response status:', response.status);
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch product data. Status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('Fetched product data:', result); // Debug log
+
+        // Make sure we have valid product data
+        if (!result || !result.data) {
+            throw new Error('No product data received');
+        }
+
+        const product = result.data; 
+        console.log('Product details:', product);
+
+        // Safely access the product ID
+        document.getElementById('editProductId').value = product._id; // Adjusted to match your API response
+
+        // Populate the form fields
+        document.getElementById('editProductName').value = product.name || '';
+        document.getElementById('editProductDescription').value = product.description || '';
+        document.getElementById('editProductPrice').value = product.price || 0; // Adjusted for your API response
+        document.getElementById('editProductStock').value = product.stock || 0; // Adjusted for your API response
+        document.getElementById('editProductCategory').value = product.category || '';
+        document.getElementById('editProductImage').value = product.image || '';
+
+        // Show the edit modal
+        document.getElementById('editModal').style.display = 'block';
+        console.log('Edit modal displayed');
+    } catch (error) {
+        console.error('Error details:', error);
+        alert(`Failed to load product data: ${error.message}`);
+    }
+}
+
+document.getElementById('editForm').addEventListener('submit', async (event) => {
+    event.preventDefault(); // Prevent default form submission
+
+    const productId = document.getElementById('editProductId').value; // Get the product ID
+    console.log('Updating product ID:', productId); // Debug log
+
+    const updatedProduct = {
+        name: document.getElementById('editProductName').value,
+        description: document.getElementById('editProductDescription').value,
+        price: parseFloat(document.getElementById('editProductPrice').value),
+        stock: parseInt(document.getElementById('editProductStock').value),
+        category: document.getElementById('editProductCategory').value,
+        image: document.getElementById('editProductImage').value,
+    };
+
+    console.log('Update data:', updatedProduct); // Debug log
+
+    // Validate the data
+    if (!productId || !updatedProduct.name || isNaN(updatedProduct.price) || isNaN(updatedProduct.stock)) {
+        alert('Please fill all fields with valid values');
+        return; // Exit if validation fails
+    }
+
+    try {
+        const response = await fetch(`http://localhost:3000/api/products/${productId}`, {
+            method: 'PUT', // Use PUT to update the product
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updatedProduct)
+        });
+
+        if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update product');
+    }
+
+    const result = await response.json();
+        console.log('Update result:', result);
+
+        closeModal();
+        await loadProducts(); // Refresh the product list
+        alert('Product updated successfully');
+    } catch (error) {
+        console.error('Error during update:', error);
+        alert(`Failed to update product: ${error.message}`);
+    }
+});
+        
+
+
         async function deleteProduct(productId) {
             if (confirm('Are you sure you want to delete this product?')) {
                 try {
-                    const response = await fetch(`http://127.0.0.1:5500/api/products/${productId}`, {
+                    const response = await fetch(`http://localhost:3000/api/products/${productId}`, {
                         method: 'DELETE'
                     });
 
@@ -418,6 +638,7 @@
 
         // Load products when page loads
         window.onload = loadProducts;
+    
     </script>
 </body>
 </html>

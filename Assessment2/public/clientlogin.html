@@ -207,6 +207,7 @@
             
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
+            
 
             try {
                 const response = await fetch('http://localhost:3000/api/sellers/login', {
@@ -228,11 +229,7 @@
                     if (data.success) {
                         alert("Login successful!");
 
-                        // Optionally, save seller info in local storage for future use
-                        const sellerData = {
-                            name: data.seller.name
-                        };
-                    localStorage.setItem('sellerData', JSON.stringify(sellerData));
+                        
 
                     window.location.href = 'clientdashboard.html';  // Redirect to dashboard page
 

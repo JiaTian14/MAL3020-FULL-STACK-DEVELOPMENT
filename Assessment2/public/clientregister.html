@@ -180,6 +180,13 @@
                         Password must be at least 8 characters long and include numbers and letters
                     </p>
                 </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required>
+                    <p class="password-requirements">
+                        Password must be at least 8 characters long and include numbers and letters
+                    </p>
+                </div>
             </div>
 
         
@@ -214,9 +221,10 @@
             const name = document.getElementById('name').value; // Ensure this ID matches your input field
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
     
             // Debug log
-            console.log('Form submitted:', { name, email, password });
+            console.log('Form submitted:', { name, email, password, confirmPassword });
     
             // Reset messages
             errorMessage.style.display = 'none';
@@ -228,12 +236,18 @@
                 errorMessage.style.display = 'block';
                 return;
             }
+            // Validate password match
+            if (password !== confirmPassword) {
+                errorMessage.textContent = 'Passwords do not match';
+                errorMessage.style.display = 'block';
+                return;
+            }
     
             try {
                 const response = await fetch('http://localhost:3000/api/sellers/register', { // Ensure the endpoint is correct
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, email, password }) // Removed shopName as it is not in the server code
+                    body: JSON.stringify({ name, email, password, confirmPassword }) // Removed shopName as it is not in the server code
                 });
     
                 const data = await response.json();
