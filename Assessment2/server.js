@@ -51,66 +51,58 @@ app.get('/api/orders/:userId', asyncHandler(async (req, res) => {
 
 // Get user's cart
 app.get('/api/cart/:userId', async (req, res) => {
-  try {
-      const { userId } = req.params;
-      if (!userId) {
-          return res.status(400).json({
-              success: false,
-              message: 'User ID is required'
-          });
-      }
+    try {
+        const { userId } = req.params;
+        console.log('Received userId:', userId);
 
-      const ObjectId = require('mongodb').ObjectId;
-    if (!ObjectId.isValid(userId)) {
-        return res.status(400).json({
+        // Check if the userId is valid
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                message: 'User  ID is required'
+            });
+        }
+
+        // Find the user by userId
+        const user = await users.findOne({ userId: userId });
+        console.log('Found user:', user);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User  not found'
+            });
+        }
+
+        // Find the cart for the user
+        const cart = await carts.findOne({ userId: userId });
+        console.log('Found cart:', cart);
+
+        if (!cart) {
+            return res.status(404).json({
+                success: false,
+                message: 'Cart not found'
+            });
+        }
+
+        // Return the cart data
+        return res.json({
+            success: true,
+            data: {
+                cart,
+                user: {
+                    userId: user._id.toString(),
+                    email: user.email
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error retrieving cart data:', error);
+        return res.status(500).json({
             success: false,
-            message: 'Invalid User ID format'
+            message: 'Internal server error'
         });
     }
-
-      const client = await connectDB();
-      const database = client.db("techmart");
-      const carts = database.collection("carts");
-      const users = database.collection("users");
-
-      // 查询购物车数据
-      const cart = await carts.findOne({ userId });
-      if (!cart) {
-          return res.status(404).json({
-              success: false,
-              message: 'Cart not found',
-          });
-      }
-
-      // Fetch cart and user data
-      const user = await users.findOne({ userId });
-      
-      if (!user) {
-        return res.status(404).json({
-            success: false,
-            message: 'User not found'
-        });
-    }
-
-    res.json({
-      success: true,
-      data: {
-          cart,
-          user: {
-              userId: user.userId,
-              name: user.name,
-              email: user.email
-          }
-      }
-  });
-} catch (error) {
-  console.error('Error fetching cart:', error);
-  res.status(500).json({
-      success: false,
-      message: 'Error fetching cart',
-      error: error.message
-  });
-}
 });
 
 
@@ -351,13 +343,13 @@ app.post('/api/users/login', async (req, res) => {
         const userId = uuidv4();
 
         // 检查 email 是否已存在
-        const existingUser = await users.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({
-                success: false,
-                message: 'Email already exists',
-            });
-        }
+        // const existingUser = await users.findOne({ email });
+        // if (existingUser) {
+        //     return res.status(400).json({
+        //         success: false,
+        //         message: 'Email already exists',
+        //     });
+        // }
 
         // 使用 bcrypt 比较密码
         const isPasswordValid = await bcrypt.compare(password, user.password);

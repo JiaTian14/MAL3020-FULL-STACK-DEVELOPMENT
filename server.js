@@ -10,6 +10,8 @@ const session = require('express-session');
 
 // Middleware
 app.use(express.json());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 app.use(cors({
@@ -49,66 +51,58 @@ app.get('/api/orders/:userId', asyncHandler(async (req, res) => {
 
 // Get user's cart
 app.get('/api/cart/:userId', async (req, res) => {
-  try {
-      const { userId } = req.params;
-      if (!userId) {
-          return res.status(400).json({
-              success: false,
-              message: 'User ID is required'
-          });
-      }
+    try {
+        const { userId } = req.params;
+        console.log('Received userId:', userId);
 
-      const ObjectId = require('mongodb').ObjectId;
-    if (!ObjectId.isValid(userId)) {
-        return res.status(400).json({
+        // Check if the userId is valid
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                message: 'User  ID is required'
+            });
+        }
+
+        // Find the user by userId
+        const user = await users.findOne({ userId: userId });
+        console.log('Found user:', user);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User  not found'
+            });
+        }
+
+        // Find the cart for the user
+        const cart = await carts.findOne({ userId: userId });
+        console.log('Found cart:', cart);
+
+        if (!cart) {
+            return res.status(404).json({
+                success: false,
+                message: 'Cart not found'
+            });
+        }
+
+        // Return the cart data
+        return res.json({
+            success: true,
+            data: {
+                cart,
+                user: {
+                    userId: user._id.toString(),
+                    email: user.email
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error retrieving cart data:', error);
+        return res.status(500).json({
             success: false,
-            message: 'Invalid User ID format'
+            message: 'Internal server error'
         });
     }
-
-      const client = await connectDB();
-      const database = client.db("techmart");
-      const carts = database.collection("carts");
-      const users = database.collection("users");
-
-      // 查询购物车数据
-      const cart = await carts.findOne({ userId });
-      if (!cart) {
-          return res.status(404).json({
-              success: false,
-              message: 'Cart not found',
-          });
-      }
-
-      // Fetch cart and user data
-      const user = await users.findOne({ userId });
-      
-      if (!user) {
-        return res.status(404).json({
-            success: false,
-            message: 'User not found'
-        });
-    }
-
-    res.json({
-      success: true,
-      data: {
-          cart,
-          user: {
-              userId: user.userId,
-              name: user.name,
-              email: user.email
-          }
-      }
-  });
-} catch (error) {
-  console.error('Error fetching cart:', error);
-  res.status(500).json({
-      success: false,
-      message: 'Error fetching cart',
-      error: error.message
-  });
-}
 });
 
 
@@ -349,13 +343,13 @@ app.post('/api/users/login', async (req, res) => {
         const userId = uuidv4();
 
         // 检查 email 是否已存在
-        const existingUser = await users.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({
-                success: false,
-                message: 'Email already exists',
-            });
-        }
+        // const existingUser = await users.findOne({ email });
+        // if (existingUser) {
+        //     return res.status(400).json({
+        //         success: false,
+        //         message: 'Email already exists',
+        //     });
+        // }
 
         // 使用 bcrypt 比较密码
         const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -974,6 +968,73 @@ app.get('/api/sellers/dashboard', async (req, res) => {
         });
     }
 });
+
+// Use product routes
+app.use('/api/products', productRoutes);
+// Update product endpoint
+app.put('/api/products/:id', async (req, res) => {
+    const { id } = req.params;
+    const { name, description, price, stock, category, image } = req.body;
+
+    try {
+        const updatedProduct = await Product.findByIdAndUpdate(
+            id,
+            { name, description, price, stock, category, image },
+            { new: true }
+        );
+        if (!updatedProduct) {
+            return res.status(404).json({ success: false, message: 'Product not found' });
+        }
+        res.status(200).json({ success: true, data: updatedProduct });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Failed to update product' });
+    }
+});
+
+
+// DELETE a product by ID
+app.delete('/api/products/:id', async (req, res) => {
+    try {
+        const deletedProduct = await Product.findByIdAndDelete(req.params.id);
+
+        if (!deletedProduct) {
+            return res.status(404).json({ message: 'Product not found' });
+        }
+
+        res.status(200).json({ message: 'Product deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to delete product', error: error.message });
+    }
+});
+
+
+app.post('/api/products', async (req, res) => {
+    try {
+        const newProduct = new Product(req.body);
+
+        // Save the new product to the database
+        const savedProduct = await newProduct.save();
+
+        res.status(201).json({ success: true, data: savedProduct });
+    } catch (error) {
+        console.error('Error adding product:', error);
+        res.status(500).json({ success: false, message: 'Failed to add product' });
+    }
+});
+
+// Get all orders for seller
+app.get('/api/orders', asyncHandler(async (req, res) => {
+    try {
+        const client = await connectDB(); // Connect to DB
+        const orders = client.db("techmart").collection("orders");
+        const allOrders = await orders.find().toArray(); // Fetch all orders
+        res.json(allOrders); // Send the orders as JSON
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error fetching orders' });
+    }
+}));
 
 
 

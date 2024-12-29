@@ -37,4 +37,38 @@ router.post('/add', async (req, res) => {
     }
 });
 
+// Get user cart by userId
+router.get("/cart/:userId", async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        // Validate userId
+        if (!userId) {
+            return res.status(400).send({ message: "User  ID is required" });
+        }
+
+        console.log('Received userId:', userId);
+
+        // Check if the user exists
+        const user = await User.findOne({ userId: userId });
+        if (!user) {
+            return res.status(404).send({ message: "User  not found" });
+        }
+
+        console.log('Found user:', user);
+
+        // Find the cart for the specified userId
+        const cart = await Cart.findOne({ userId: userId });
+
+        if (!cart) {
+            return res.status(404).send({ message: "Cart not found" });
+        }
+
+        // Send the cart data back to the client
+        res.status(200).send(cart);
+    } catch (error) {
+        console.error("Error fetching cart:", error);
+        res.status(500).send({ message: "Internal server error" });
+    }
+});
 module.exports = router;
