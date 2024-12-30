@@ -281,10 +281,15 @@
                     <tr>
                         <th>Order ID</th>
                         <th>Customer</th>
-                        <th>Date</th>
-                        <th>Total</th>
+                        <th>Product Detail</th>
+                        <th>Quantity</th>
+                        <th>Price</th>
+                        <th>Total Price</th>
+                        <th>Shipping Info</th>
+                        <th>Payment Method</th>
                         <th>Status</th>
-                        <th>Actions</th>
+                        <th>Date</th>
+                        
                     </tr>
                 </thead>
                 <tbody id="ordersTableBody">
@@ -309,37 +314,45 @@
     </div>
 
     <script>
-    async function loadOrders() {
-        try {
-            const response = await fetch('http://localhost:3000/api/orders'); // Adjust the URL as needed
-            const orders = await response.json();
-
-            const ordersTableBody = document.getElementById('ordersTableBody');
-            ordersTableBody.innerHTML = orders.map(order => `
-                <tr>
-                    <td>${order._id.$oid}</td>
-                    <td>${order.userId}</td>
-                    <td>${order.products.map(product => product.name).join(', ')}</td>
-                    <td>${order.products.map(product => product.quantity.$numberInt).join(', ')}</td>
-                    <td>${order.products.map(product => `$${(product.price.$numberDouble).toFixed(2)}`).join(', ')}</td>
-                    <td>$${(order.total.$numberDouble).toFixed(2)}</td>
-                    <td>
-                        ${order.shippingInfo.fullName}, ${order.shippingInfo.address}, ${order.shippingInfo.city}, ${order.shippingInfo.postalCode}
-                    </td>
-                    <td>${order.paymentMethod}</td>
-                    <td>${order.status}</td>
-                    <td>${new Date(order.date.$date.$numberLong).toLocaleDateString()}</td>
-                </tr>
-            `).join('');
-        } catch (error) {
-            console.error('Error loading orders:', error);
-            alert('Failed to load orders. Please try again later.');
+        async function loadOrders() {
+            try {
+                const response = await fetch('http://localhost:3000/api/orders'); // Adjust the URL as needed
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+    
+                const orders = await response.json();
+                console.log('Orders fetched:', orders); // Debug log to verify data
+    
+                const ordersTableBody = document.getElementById('ordersTableBody');
+                ordersTableBody.innerHTML = orders.map(order => `
+                    <tr>
+                        <td>${order._id?.$oid || order._id}</td>
+                        <td>${order.userId}</td>
+                        <td>${order.products.map(product => product.name).join(', ')}</td>
+                        <td>${order.products.map(product => product.quantity?.$numberInt || product.quantity).join(', ')}</td>
+                        <td>${order.products.map(product => `$${parseFloat(product.price?.$numberDouble || product.price).toFixed(2)}`).join(', ')}</td>
+                        <td>$${parseFloat(order.total?.$numberDouble || order.total).toFixed(2)}</td>
+                        <td>
+                            ${order.shippingInfo.fullName}, 
+                            ${order.shippingInfo.address}, 
+                            ${order.shippingInfo.city}, 
+                            ${order.shippingInfo.postalCode}
+                        </td>
+                        <td>${order.paymentMethod}</td>
+                        <td>${order.status}</td>
+                        <td>${new Date(order.date?.$date?.$numberLong || order.date).toLocaleDateString()}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading orders:', error);
+                alert('Failed to load orders. Please try again later.');
+            }
         }
-    }
-
-    // Load orders on page load
-    window.onload = loadOrders;
-</script>
+    
+        // Load orders on page load
+        window.onload = loadOrders;
+    </script>
     
 </body>
 </html>

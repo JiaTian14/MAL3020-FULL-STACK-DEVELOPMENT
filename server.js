@@ -1000,12 +1000,12 @@ app.post('/api/products', async (req, res) => {
 // Get all orders for seller
 app.get('/api/orders', asyncHandler(async (req, res) => {
     try {
-        const client = await connectDB(); // Connect to DB
-        const orders = client.db("techmart").collection("orders");
-        const allOrders = await orders.find().toArray(); // Fetch all orders
-        res.json(allOrders); // Send the orders as JSON
+        const client = await connectDB(); // Connect to MongoDB
+        const ordersCollection = client.db("techmart").collection("orders");
+        const allOrders = await ordersCollection.find().toArray(); // Fetch all orders
+        res.json(allOrders); // Send orders as JSON
     } catch (error) {
-        console.error(error);
+        console.error('Error fetching orders:', error);
         res.status(500).json({ message: 'Error fetching orders' });
     }
 }));

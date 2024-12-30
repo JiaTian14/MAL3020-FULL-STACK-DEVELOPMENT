@@ -603,11 +603,12 @@ document.getElementById('editForm').addEventListener('submit', async (event) => 
 
         if (!response.ok) {
         const errorData = await response.json();
+        console.error('Server error:', errorData);
         throw new Error(errorData.message || 'Failed to update product');
     }
 
     const result = await response.json();
-        console.log('Update result:', result);
+    console.log('Update result:', result);
 
         closeModal();
         await loadProducts(); // Refresh the product list
