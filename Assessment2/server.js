@@ -28,6 +28,7 @@ async function connectDB() {
     if (!client) {
         client = new MongoClient(uri);
         await client.connect();
+        console.log('Connected to MongoDB');
     }
     return client;
 }
@@ -410,121 +411,68 @@ app.post('/api/users/login', async (req, res) => {
 });
 
 // 添加到购物车
-app.post('/api/cart/:userId/add', async (req, res) => {
-  try {
-      const { userId } = req.params;
-      const { productId, quantity } = req.body;
+app.post('/api/users/login', async (req, res) => {
+    try {
+        console.log('Login request received:', req.body);
+        const { email, password } = req.body;
+        
+        // Input validation
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email and password are required'
+            });
+        }
 
-      // 输入验证
-      if (!userId || !productId || !quantity) {
-          return res.status(400).json({
-              success: false,
-              message: 'Missing required fields: userId, productId, or quantity'
-          });
-      }
+        const client = await connectDB();
+        const database = client.db("techmart");
+        const users = database.collection("users");
+        
+        // Find user by email
+        const user = await users.findOne({ email });
+        
+        // Check if user exists
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password'
+            });
+        }
 
-      if (quantity <= 0) {
-          return res.status(400).json({
-              success: false,
-              message: 'Quantity must be greater than 0'
-          });
-      }
+        // Validate password
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        console.log('Password validation:', isPasswordValid ? 'Valid' : 'Invalid');
 
-      const client = await connectDB();
-      const database = client.db("techmart");
-      const carts = database.collection("carts");
-      const products = database.collection("products");
+        if (!isPasswordValid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password'
+            });
+        }
 
-      // 获取产品信息
-      const product = await products.findOne({ _id: new ObjectId(productId) });
-      if (!product) {
-          return res.status(404).json({
-              success: false,
-              message: 'Product not found'
-          });
-      }
+        // Prepare user data to send back (excluding sensitive information)
+        const userData = {
+            userId: user.userId,
+            username: user.username,
+            email: user.email,
+            createdAt: user.createdAt
+        };
 
-      // 检查库存
-      if (product.stock < quantity) {
-          return res.status(400).json({
-              success: false,
-              message: 'Not enough stock available'
-          });
-      }
+        // Send successful response
+        res.status(200).json({
+            success: true,
+            message: 'Login successful',
+            data: userData
+        });
 
-      // 检查购物车是否存在
-      let cart = await carts.findOne({ userId });
-      
-      if (!cart) {
-          cart = {
-              userId,
-              products: [],
-              createdAt: new Date(),
-              updatedAt: new Date()
-          };
-      }
-
-      // 检查产品是否已在购物车中
-      const existingProductIndex = cart.products.findIndex(p => p.productId === productId);
-
-      if (existingProductIndex !== -1) {
-          // 更新现有产品数量
-          const newQuantity = cart.products[existingProductIndex].quantity + quantity;
-          
-          if (newQuantity > product.stock) {
-              return res.status(400).json({
-                  success: false,
-                  message: 'Cannot add more items than available in stock'
-              });
-          }
-
-          await carts.updateOne(
-              { userId, "products.productId": productId },
-              { 
-                  $inc: { "products.$.quantity": quantity },
-                  $set: { updatedAt: new Date() }
-              }
-          );
-      } else {
-          // 添加新产品
-          const cartProduct = {
-              productId,
-              name: product.name,
-              price: product.price,
-              image: product.image,
-              category: product.category,
-              quantity,
-              stock: product.stock
-          };
-
-          await carts.updateOne(
-              { userId },
-              { 
-                  $push: { products: cartProduct },
-                  $set: { updatedAt: new Date() },
-                  $setOnInsert: { createdAt: new Date() }
-              },
-              { upsert: true }
-          );
-      }
-
-      // 获取更新后的购物车
-      const updatedCart = await carts.findOne({ userId });
-
-      res.json({
-          success: true,
-          message: 'Product added to cart successfully',
-          data: updatedCart
-      });
-
-  } catch (error) {
-      console.error('Error adding to cart:', error);
-      res.status(500).json({
-          success: false,
-          message: 'Error adding to cart',
-          error: error.message
-      });
-  }
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error during login',
+            error: error.message
+        });
+    }
 });
 
 // 更新购物车商品数量
@@ -969,8 +917,6 @@ app.get('/api/sellers/dashboard', async (req, res) => {
     }
 });
 
-// Use product routes
-app.use('/api/products', productRoutes);
 // Update product endpoint
 app.put('/api/products/:id', async (req, res) => {
     const { id } = req.params;

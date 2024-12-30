@@ -227,7 +227,21 @@
                     const data = await response.json();
                     // Check if the session was established successfully
                     if (data.success) {
-                        alert("Login successful!");
+                        if (data.seller) {
+                        const sellerData = {
+                        _id: data.seller._id,
+                        name: data.seller.name,
+                        email: data.seller.email
+                    };
+            localStorage.setItem('sellerData', JSON.stringify(sellerData));
+        } else {
+                // If no seller data, store what we have
+                localStorage.setItem('sellerData', JSON.stringify({
+                    name: data.name || 'Unknown',
+                    email: email
+                }));
+            }
+            alert("Login successful!");
 
                         
 

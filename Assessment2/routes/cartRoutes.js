@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 // Cart model (确保已经定义)
-const Cart = require('../models/Cart');
+const Cart = require('Assessment2/models/Cart');
 
 // 添加到购物车的 API
 router.post('/add', async (req, res) => {
