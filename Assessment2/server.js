@@ -14,11 +14,13 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
-app.use(cors({
-    origin: '*',
+const corsOptions ={
+    origin: 'http://127.0.0.1:5501',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
+    allowedHeaders: ['Content-Type', 'sellerId', 'Authorization'],
+    credentials: true    
+};
+app.use(cors(corsOptions));
 
 const uri = "mongodb+srv://Tan:1234@assessment.2jgmj.mongodb.net/?retryWrites=true&w=majority&appName=Assessment";
 let client;
@@ -26,11 +28,14 @@ let client;
 // Connect to MongoDB
 async function connectDB() {
     if (!client) {
-        client = new MongoClient(uri);
+        client = new MongoClient(uri,);
         await client.connect();
         console.log('Connected to MongoDB');
+        console.log('Using MongoDB URI:', uri);
+
     }
     return client;
+    
 }
 
 // Helper function for error handling
@@ -52,38 +57,48 @@ app.get('/api/orders/:userId', asyncHandler(async (req, res) => {
 
 // Get user's cart
 app.get('/api/cart/:userId', async (req, res) => {
-    try {
+    const cartData = { items: [], total: 0 };
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json(cartData);
+
         const { userId } = req.params;
         console.log('Received userId:', userId);
 
-        // Check if the userId is valid
-        if (!userId) {
-            return res.status(400).json({
-                success: false,
-                message: 'User  ID is required'
-            });
-        }
+        try {
+            // Validate if userId is a valid ObjectId (if it's supposed to be an ObjectId)
+            if (!ObjectId.isValid(userId)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid user ID format'
+                });
+            }
+   
+        const client = await connectDB();
+        const db = client.db("techmart");
+        const users = db.collection("users");
+        const carts = db.collection("carts");
 
-        // Find the user by userId
-        const user = await users.findOne({ userId: userId });
-        console.log('Found user:', user);
-
+        const user = await users.findOne({ _id: new ObjectId(userId) });
         if (!user) {
             return res.status(404).json({
                 success: false,
-                message: 'User  not found'
+                message: 'User not found'
             });
         }
 
-        // Find the cart for the user
-        const cart = await carts.findOne({ userId: userId });
-        console.log('Found cart:', cart);
+        console.log('Found user:', user); // Log the found user data
+        res.json({
+            success: true,
+            data: user
+        });
 
+        const cart = await carts.findOne({ userId: userId.toString() });
         if (!cart) {
             return res.status(404).json({
                 success: false,
-                message: 'Cart not found'
+                message: 'Cart not found for the given user ID'
             });
+        
         }
 
         // Return the cart data
@@ -289,6 +304,12 @@ app.get('/api/products/:id', async (req, res) => {
 });
 
 // ---------- POST Routes ----------
+class APIError extends Error {
+    constructor(statusCode, message) {
+        super(message);
+        this.statusCode = statusCode;
+    }
+}
 // Register a new user
 app.post('/api/register', asyncHandler(async (req, res) => {
     const { username, email, password } = req.body;
@@ -321,96 +342,6 @@ app.post('/api/register', asyncHandler(async (req, res) => {
 }));
 
 // User login
-app.post('/api/users/login', async (req, res) => {
-    try {
-        console.log('Login request received:', req.body);
-    const { email, password } = req.body;
-        
-        if (!email || !password) {
-            return res.status(400).json({
-                success: false,
-                message: 'Email and password are required'
-            });
-        }
-
-        const client = await connectDB();
-        const database = client.db("techmart");
-
-        const users = database.collection("users");
-        const profiles = database.collection("profiles");
-        const carts = database.collection("carts");
-        
-        // 生成唯一 userId
-        const userId = uuidv4();
-
-        // 检查 email 是否已存在
-        // const existingUser = await users.findOne({ email });
-        // if (existingUser) {
-        //     return res.status(400).json({
-        //         success: false,
-        //         message: 'Email already exists',
-        //     });
-        // }
-
-        // 使用 bcrypt 比较密码
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        console.log('Password validation:', isPasswordValid ? 'Valid' : 'Invalid');
-
-        if (!isPasswordValid) {
-            return res.status(401).json({
-                success: false,
-                message: 'Invalid email or password'
-            });
-        }
-
-        // 创建用户
-        const newUser = {
-          userId,
-          name,
-          email,
-          createdAt: new Date(),
-      };
-      await users.insertOne(newUser);
-
-      // 在 profiles 集合中创建 profile 数据
-      const newProfile = {
-          userId,
-          name,
-          email,
-          createdAt: new Date(),
-          bio: '',
-          avatar: '',
-      };
-      await profiles.insertOne(newProfile);
-
-      // 在 carts 集合中初始化空购物车
-      const newCart = {
-          userId,
-          products: [],
-          createdAt: new Date(),
-      };
-      await carts.insertOne(newCart);
-
-      res.status(201).json({
-          success: true,
-          message: 'User, profile, and cart created successfully',
-          data: {
-              user: newUser,
-              profile: newProfile,
-              cart: newCart,
-          },
-      });
-  } catch (error) {
-      console.error('Error creating user:', error);
-      res.status(500).json({
-          success: false,
-          message: 'Error creating user',
-          error: error.message,
-      });
-  }
-});
-
-// 添加到购物车
 app.post('/api/users/login', async (req, res) => {
     try {
         console.log('Login request received:', req.body);
@@ -473,6 +404,110 @@ app.post('/api/users/login', async (req, res) => {
             error: error.message
         });
     }
+});
+
+// 添加到购物车
+app.post('/api/cart/:userId/add', async (req, res) => {
+  try {
+      const { userId } = req.params;
+      const { productId, quantity } = req.body;
+
+      // 输入验证
+      if (!userId || !productId || !quantity) {
+          return res.status(400).json({
+              success: false,
+              message: 'Missing required fields: userId, productId, or quantity'
+          });
+      }
+
+      if (quantity <= 0) {
+          return res.status(400).json({
+              success: false,
+              message: 'Quantity must be greater than 0'
+          });
+      }
+
+      const client = await connectDB();
+      const database = client.db("techmart");
+      const carts = database.collection("carts");
+      const products = database.collection("products");
+
+      // 获取产品信息
+      const product = await products.findOne({ _id: new ObjectId(productId) });
+      if (!product) {
+          return res.status(404).json({
+              success: false,
+              message: 'Product not found'
+          });
+      }
+
+      // 检查库存
+      if (product.stock < quantity) {
+          return res.status(400).json({
+              success: false,
+              message: 'Not enough stock available'
+          });
+      }
+
+      // Find cart for the user
+      const cart = await carts.findOne({ userId });
+      const updatedCart = cart || { userId, products: [], createdAt: new Date(), updatedAt: new Date() };
+
+      
+      if (!cart) {
+          cart = {
+              userId,
+              products: [],
+              createdAt: new Date(),
+              updatedAt: new Date()
+          };
+      }
+
+// Check if the product is already in the cart
+const existingProductIndex = updatedCart.products.findIndex(p => p.productId === productId);
+if (existingProductIndex !== -1) {
+    // Update quantity
+    const newQuantity = updatedCart.products[existingProductIndex].quantity + quantity;
+    if (newQuantity > product.stock) {
+        return res.status(400).json({
+            success: false,
+            message: 'Quantity exceeds stock limit'
+        });
+    }
+    updatedCart.products[existingProductIndex].quantity = newQuantity;
+      } else {
+          // 添加新产品
+          const cartProduct = {
+              productId,
+              name: product.name,
+              price: product.price,
+              image: product.image,
+              quantity,
+              stock: product.stock
+          };
+
+          await carts.updateOne(
+              { userId },
+              { $set: { products: updatedCart.products, updatedAt: new Date() } },
+              { upsert: true }
+          );
+      }
+
+      
+      res.json({
+          success: true,
+          message: 'Product added to cart successfully',
+          data: updatedCart
+      });
+
+  } catch (error) {
+      console.error('Error adding to cart:', error);
+      res.status(500).json({
+          success: false,
+          message: 'Error adding to cart',
+          error: error.message
+      });
+  }
 });
 
 // 更新购物车商品数量
@@ -869,27 +904,21 @@ req.session.sellerId = seller._id;
 
 // API endpoint to fetch dashboard data for the logged-in seller
 app.get('/api/sellers/dashboard', async (req, res) => {
-    const sellerId = req.session.sellerId;  // Assuming seller ID is stored in session
-    
-    if (!sellerId) {
-        return res.status(401).json({ message: 'You are not logged in' });
-    }
-
     try {
+        const sellerObjectId = req.sellerId; 
+        // Fetch the dashboard data from the database directly
         const client = await connectDB();
         const database = client.db("techmart");
 
-        const sellerObjectId = new ObjectId(sellerId);
-
-        // Fetch total sales (sum of all order totals for this seller)
         const ordersCollection = database.collection('orders');
         const productsCollection = database.collection('products');
 
-        const totalSalesResult = await ordersCollection.aggregate([
-            { $match: { sellerId: sellerObjectId } },
-            { $group: { _id: null, totalSales: { $sum: "$totalPrice" } } }
-        ]).toArray();
-        const [totalOrders, totalProducts, distinctCustomers, recentOrders] = await Promise.all([
+        // Fetch required data for the dashboard
+         const [totalSalesResult, totalOrders, totalProducts, distinctCustomers, recentOrders] = await Promise.all([
+            ordersCollection.aggregate([
+                { $match: { sellerId: sellerObjectId } },
+                { $group: { _id: null, totalSales: { $sum: "$total" } } }
+            ]).toArray(),
             ordersCollection.countDocuments({ sellerId: sellerObjectId }),
             productsCollection.countDocuments({ sellerId: sellerObjectId }),
             ordersCollection.distinct('customerName', { sellerId: sellerObjectId }),
@@ -897,8 +926,7 @@ app.get('/api/sellers/dashboard', async (req, res) => {
                 .sort({ createdAt: -1 })
                 .limit(5)
                 .toArray()
-        ]); 
-        await client.close();
+        ]);
 
         // Send the dashboard data as a response
         res.json({
@@ -910,12 +938,12 @@ app.get('/api/sellers/dashboard', async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching dashboard data:', error);
-        res.status(500).json({ 
-            message: 'Failed to load dashboard data',
-            error: error.message 
-        });
+        res.status(500).json({ message: 'Failed to load dashboard data', error: error.message });
     }
 });
+
+
+
 
 // Update product endpoint
 app.put('/api/products/:id', async (req, res) => {
@@ -992,7 +1020,7 @@ app.use((err, req, res, next) => {
 
 // ---------- Start Server ----------
 const PORT = process.env.PORT || 3000;
-
+connectDB();
 // 在服务器启动时添加示例产品
 app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);
