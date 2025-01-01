@@ -988,6 +988,9 @@ app.put('/api/products/:id', async (req, res) => {
             });
         }
 
+        // Convert string ID to ObjectId
+        const objectId = new ObjectId(productId);
+
         // First check if the product exists
         const existingProduct = await products.findOne({ _id: objectId });
         if (!existingProduct) {
@@ -997,9 +1000,6 @@ app.put('/api/products/:id', async (req, res) => {
                 message: 'Product not found'
             });
         }
-
-        // Convert string ID to ObjectId
-        const objectId = new ObjectId(productId);
 
         const result = await products.findOneAndUpdate(
             { _id: objectId },
