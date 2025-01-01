@@ -287,10 +287,7 @@
                         <div class="order-items">
                             ${order.products.map(product => `
                                 <div class="order-item">
-                                    <div class="item-image">
-                                        <img src="${product.image || 'https://via.placeholder.com/60'}" 
-                                             alt="${product.name}">
-                                    </div>
+                                    
                                     <div class="item-details">
                                         <h4>${product.name}</h4>
                                         <p>Quantity: ${product.quantity}</p>

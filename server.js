@@ -8,6 +8,7 @@ const { v4: uuidv4 } = require('uuid');
 const bodyParser = require('body-parser');
 const session = require('express-session');
 const Product = require('./Assessment2/models/product'); // Corrected the path to the Product model
+const cartRoutes = require('./Assessment2/routes/cartRoutes'); // Import cart routes
 
 // Middleware
 app.use(express.json());
@@ -15,11 +16,11 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
-const corsOptions ={
+const corsOptions = {
     origin: 'http://127.0.0.1:5501',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'sellerId', 'Authorization'],
-    credentials: true    
+    credentials: true
 };
 app.use(cors(corsOptions));
 
@@ -27,7 +28,9 @@ const uri = "mongodb+srv://Tan:1234@assessment.2jgmj.mongodb.net/?retryWrites=tr
 let client;
 
 // Connect to MongoDB using Mongoose
-mongoose.connect(uri).then(() => {
+mongoose.connect(uri, {
+    serverSelectionTimeoutMS: 30000, // Increase the timeout to 30 seconds
+}).then(() => {
     console.log('Mongoose connected to MongoDB');
 }).catch((err) => {
     console.error('Mongoose connection error:', err);
@@ -45,7 +48,7 @@ mongoose.connection.once('open', () => {
 // Connect to MongoDB
 async function connectDB() {
     if (!client) {
-        client = new MongoClient(uri,);
+        client = new MongoClient(uri, { serverSelectionTimeoutMS: 30000 }); // Increase the timeout to 30 seconds
         await client.connect();
         console.log('Connected to MongoDB');
     }
@@ -65,6 +68,9 @@ app.use((req, res, next) => {
     next();
 });
 
+// Use cart routes
+app.use('/api/cart', cartRoutes);
+
 // ---------- GET Routes ----------
 // Get default homepage
 app.get('/', (req, res) => res.json({ message: 'Welcome to the E-commerce API' }));
@@ -78,23 +84,19 @@ app.get('/api/orders/:userId', asyncHandler(async (req, res) => {
 }));
 
 // Get user's cart
-app.get('/api/cart/:userId', async (req, res) => {
-    const cartData = { items: [], total: 0 };
-    res.setHeader('Content-Type', 'application/json');
-    res.status(200).json(cartData);
+app.get('/api/cart/:userId', asyncHandler(async (req, res) => {
+    const { userId } = req.params;
+    console.log('Received userId:', userId);
 
-        const { userId } = req.params;
-        console.log('Received userId:', userId);
+    try {
+        // Validate if userId is a valid ObjectId (if it's supposed to be an ObjectId)
+        if (!ObjectId.isValid(userId)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid user ID format'
+            });
+        }
 
-        try {
-            // Validate if userId is a valid ObjectId (if it's supposed to be an ObjectId)
-            if (!ObjectId.isValid(userId)) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid user ID format'
-                });
-            }
-   
         const client = await connectDB();
         const db = client.db("techmart");
         const users = db.collection("users");
@@ -109,10 +111,6 @@ app.get('/api/cart/:userId', async (req, res) => {
         }
 
         console.log('Found user:', user); // Log the found user data
-        res.json({
-            success: true,
-            data: user
-        });
 
         const cart = await carts.findOne({ userId: userId.toString() });
         if (!cart) {
@@ -120,7 +118,6 @@ app.get('/api/cart/:userId', async (req, res) => {
                 success: false,
                 message: 'Cart not found for the given user ID'
             });
-        
         }
 
         // Return the cart data
@@ -141,7 +138,19 @@ app.get('/api/cart/:userId', async (req, res) => {
             message: 'Internal server error'
         });
     }
+}));
+
+app.get('/api/test-db', async (req, res) => {
+    try {
+        const client = await connectDB();
+        console.log('[DEBUG] Database connection test successful');
+        return res.status(200).json({ success: true, message: "Database connected successfully" });
+    } catch (error) {
+        console.error('[ERROR] Database connection test failed:', error);
+        return res.status(500).json({ success: false, message: "Database connection failed", error: error.message });
+    }
 });
+
 
 
 // Get checkout details
@@ -472,31 +481,21 @@ app.post('/api/cart/:userId/add', async (req, res) => {
       }
 
       // Find cart for the user
-      const cart = await carts.findOne({ userId });
+      let cart = await carts.findOne({ userId });
       const updatedCart = cart || { userId, products: [], createdAt: new Date(), updatedAt: new Date() };
 
-      
-      if (!cart) {
-          cart = {
-              userId,
-              products: [],
-              createdAt: new Date(),
-              updatedAt: new Date()
-          };
-      }
-
-// Check if the product is already in the cart
-const existingProductIndex = updatedCart.products.findIndex(p => p.productId === productId);
-if (existingProductIndex !== -1) {
-    // Update quantity
-    const newQuantity = updatedCart.products[existingProductIndex].quantity + quantity;
-    if (newQuantity > product.stock) {
-        return res.status(400).json({
-            success: false,
-            message: 'Quantity exceeds stock limit'
-        });
-    }
-    updatedCart.products[existingProductIndex].quantity = newQuantity;
+      // Check if the product is already in the cart
+      const existingProductIndex = updatedCart.products.findIndex(p => p.productId === productId);
+      if (existingProductIndex !== -1) {
+          // Update quantity
+          const newQuantity = updatedCart.products[existingProductIndex].quantity + quantity;
+          if (newQuantity > product.stock) {
+              return res.status(400).json({
+                  success: false,
+                  message: 'Quantity exceeds stock limit'
+              });
+          }
+          updatedCart.products[existingProductIndex].quantity = newQuantity;
       } else {
           // 添加新产品
           const cartProduct = {
@@ -507,15 +506,15 @@ if (existingProductIndex !== -1) {
               quantity,
               stock: product.stock
           };
-
-          await carts.updateOne(
-              { userId },
-              { $set: { products: updatedCart.products, updatedAt: new Date() } },
-              { upsert: true }
-          );
+          updatedCart.products.push(cartProduct);
       }
 
-      
+      await carts.updateOne(
+          { userId },
+          { $set: { products: updatedCart.products, updatedAt: new Date() } },
+          { upsert: true }
+      );
+
       res.json({
           success: true,
           message: 'Product added to cart successfully',

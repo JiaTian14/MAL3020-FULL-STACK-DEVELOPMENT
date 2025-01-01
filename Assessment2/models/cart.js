@@ -1,10 +1,12 @@
-// models/Cart.js
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const cartSchema = new Schema({
   userId: { type: String, required: true },
-  items: [{ type: Schema.Types.ObjectId, ref: 'Product' }],
+  items: [{
+    productId: { type: Schema.Types.ObjectId, ref: 'Product' },
+    quantity: { type: Number, required: true }
+  }],
   totalPrice: { type: Number, default: 0 },
 });
 

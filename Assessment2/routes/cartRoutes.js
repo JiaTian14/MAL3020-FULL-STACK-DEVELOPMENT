@@ -1,8 +1,6 @@
 const express = require('express');
 const router = express.Router();
-
-// Cart model (确保已经定义)
-const Cart = require('Assessment2/models/Cart');
+const Cart = require('../models/cart'); // Corrected the path to the Cart model
 
 // 添加到购物车的 API
 router.post('/add', async (req, res) => {
@@ -38,37 +36,26 @@ router.post('/add', async (req, res) => {
 });
 
 // Get user cart by userId
-router.get("/cart/:userId", async (req, res) => {
+router.get('/:userId', async (req, res) => {
     const { userId } = req.params;
+    console.log(`Fetching cart for userId: ${userId}`); // Debugging
 
     try {
-        // Validate userId
-        if (!userId) {
-            return res.status(400).send({ message: "User  ID is required" });
-        }
-
-        console.log('Received userId:', userId);
-
-        // Check if the user exists
-        const user = await User.findOne({ userId: userId });
-        if (!user) {
-            return res.status(404).send({ message: "User  not found" });
-        }
-
-        console.log('Found user:', user);
-
-        // Find the cart for the specified userId
-        const cart = await Cart.findOne({ userId: userId });
-
+        // Query the database
+        const cart = await Cart.findOne({ userId }).populate('items.productId');
+        
+        // Check if cart exists
         if (!cart) {
-            return res.status(404).send({ message: "Cart not found" });
+            console.error(`Cart not found for userId: ${userId}`);
+            return res.status(404).json({ success: false, message: 'Cart not found' });
         }
 
-        // Send the cart data back to the client
-        res.status(200).send(cart);
+        // Return the cart data
+        res.status(200).json({ success: true, data: { cart } });
     } catch (error) {
-        console.error("Error fetching cart:", error);
-        res.status(500).send({ message: "Internal server error" });
+        console.error('Error fetching cart:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
     }
 });
+
 module.exports = router;

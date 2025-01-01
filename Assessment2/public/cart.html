@@ -348,251 +348,225 @@
     </div>
 
     <script>
-    // 检查用户登录状态
-    function checkLoginStatus() {
-        const userData = localStorage.getItem('userData');
-        console.log("User data in localStorage:", userData); // Debugging line
-        
-        if (!userData) {
-            document.getElementById('loginWarning').style.display = 'block';
-            document.getElementById('cartSection').style.display = 'none';
-            return null;
-        }
-
-        const parsedUserData = JSON.parse(userData);  // 解析 userData
-        const userId = parsedUserData._id;  // 从 userData 中获取 userId
-
-        if (!userId) {
-            console.error("User ID not found in stored data");
-            document.getElementById('loginWarning').style.display = 'block';
-            document.getElementById('cartSection').style.display = 'none';
-            return null;
-        }
-
-        document.getElementById('loginWarning').style.display = 'none';
-        document.getElementById('cartSection').style.display = 'block';
-        return parsedUserData; // 返回完整的用户数据
-    }
-
-    // Function to generate a unique userId
-    function autoGenerateUserId() {
-        return Array.from({ length: 24 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-    }
-
-    // Function to ensure userData exists and contains a valid userId
-    function ensureUserId() {
-        let userData = localStorage.getItem('userData');
-        let parsedUserData = userData ? JSON.parse(userData) : null;
-
-        if (!parsedUserData || !parsedUserData._id) {
-            const newUserId = autoGenerateUserId();
-            parsedUserData = { ...parsedUserData, _id: newUserId };
-            localStorage.setItem('userData', JSON.stringify(parsedUserData));
-            console.log("Generated new userId:", newUserId); // Debugging the new userId
-        }
-
-        return parsedUserData._id;  // Return the userId
-    }
-
-    // Load the shopping cart data
-    async function loadCart() {
-        const userId = ensureUserId(); // Ensure userId exists and retrieves it
-        console.log("Using userId:", userId); // Debugging userId
-        
-        const userData = localStorage.getItem('userData');
-        if (!userData) {
-            document.getElementById('cartSection').innerHTML = `
-                <div class="warning">
-                    <p>Please <a href="login.html">log in</a> to view your cart</p>
-                </div>`;
-            return;
-        }
-
-        // Parse the user data
-        const parsedUserData = JSON.parse(userData);
-        console.log("Parsed userData:", parsedUserData); // Debugging parsed data
-
-        // Check if userId exists
-        if (!userId) {
-            throw new Error('User ID not found in stored data');
-        }
-
-        try {
-            const response = await fetch(`http://localhost:3000/api/${userId}`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            const result = await response.json();
-
-            if (result.success && result.data && result.data.cart) {
-                const cartData = result.data.cart;
-                if (!cartData.products || cartData.products.length === 0) {
-                    document.getElementById('cartItems').innerHTML = `
-                        <div class="empty-cart">
-                            <i class="fas fa-shopping-cart"></i>
-                            <p>Your cart is empty</p>
-                            <a href="products.html" class="btn continue-shopping">Start Shopping</a>
-                        </div>`;
-                    document.querySelector('.cart-summary').style.display = 'none';
-                } else {
-                    displayCartItems(cartData);
-                    updateCartSummary(cartData);
-                }
-            } else {
-                showEmptyCart();
+        // 检查用户登录状态
+        function checkLoginStatus() {
+            const userData = localStorage.getItem('userData');
+            if (!userData) {
+                document.getElementById('cartContainer').innerHTML = `
+                    <h2>Please login to view your cart</h2>
+                    <a href="login.html">Login here</a>
+                `;
+                return null;
             }
-        } catch (error) {
-            console.error('Error loading cart:', error);
-            document.getElementById('cartItems').innerHTML = `
-                <div class="warning">
-                    <p>Error loading cart. Please try again.</p>
-                    <p>Error details: ${error.message}</p>
-                </div>`;
-        }
-    }
+            return JSON.parse(userData);
 
-    // Show empty cart message
-    function showEmptyCart() {
-        const cartItems = document.getElementById('cartItems');
-        cartItems.innerHTML = `
-            <div class="empty-cart">
-                <i class="fas fa-shopping-cart"></i>
-                <p>Your cart is empty</p>
-                <a href="products.html" class="btn continue-shopping">Start Shopping</a>
+        // 更新导航栏显示
+        function updateNavigation() {
+            const userData = checkLoginStatus();
+            const authButtons = document.querySelector('.auth-buttons');
+            if (userData) {
+                authButtons.innerHTML = `
+                    <span style="color: white; margin-right: 10px;">Welcome, ${userData.username}</span>
+                    <a href="#" onclick="logout()" class="login-btn">Logout</a>
+                `;
+            }
+        }}
+
+        // 加载购物车数据
+        async function loadCart() {
+    const userData = localStorage.getItem('userData');
+    if (!userData) {
+        document.getElementById('cartSection').innerHTML = `
+            <div class="warning">
+                <p>Please <a href="login.html">log in</a> to view your cart</p>
             </div>`;
-        document.querySelector('.cart-summary').style.display = 'none';
+        return;
     }
 
-    // Display the cart items in the UI
-    function displayCartItems(cartData) {
-        const cartContainer = document.getElementById('cart-container');
+    try {
+        const user = JSON.parse(userData);
+        console.log("User ID:", user._id); // 调试用
 
-        if (cartData.products.length === 0) {
-            cartContainer.innerHTML = '<p>Your cart is empty</p>';
-            return;
+        const response = await fetch(`http://localhost:3000/api/cart/${user._id}`);
+        const result = await response.json();
+        console.log("Cart response:", result); // 调试用
+
+        if (result.success && result.data) {
+            if (!result.data.products || result.data.products.length === 0) {
+                document.getElementById('cartItems').innerHTML = `
+                    <div class="empty-cart">
+                        <i class="fas fa-shopping-cart"></i>
+                        <p>Your cart is empty</p>
+                        <a href="products.html" class="btn continue-shopping">Start Shopping</a>
+                    </div>`;
+                document.querySelector('.cart-summary').style.display = 'none';
+            } else {
+                displayCartItems(result.data);
+                updateCartSummary(result.data);
+            }
+        } else {
+            throw new Error('Invalid cart data received');
+        }
+    } catch (error) {
+        console.error('Error loading cart:', error);
+        document.getElementById('cartItems').innerHTML = `
+            <div class="warning">
+                <p>Error loading cart. Please try again.</p>
+                <p>Error details: ${error.message}</p>
+            </div>`;
+    }
+}
+
+        // 显示空购物车
+        function showEmptyCart() {
+            const cartItems = document.getElementById('cartItems');
+            cartItems.innerHTML = `
+                <div class="empty-cart">
+                    <i class="fas fa-shopping-cart"></i>
+                    <p>Your cart is empty</p>
+                    <a href="products.html" class="btn continue-shopping">Start Shopping</a>
+                </div>
+            `;
+            document.querySelector('.cart-summary').style.display = 'none';
         }
 
-        cartContainer.innerHTML = cartData.products.map(item => `
-            <div class="cart-item" data-id="${item.productId}">
-                <div class="product-image">
-                    <img src="${item.image || 'https://via.placeholder.com/100'}" 
-                         alt="${item.name}"
-                         onerror="this.src='https://via.placeholder.com/100'">
-                </div>
-                <div class="product-info">
-                    <h3>${item.name}</h3>
-                    <p class="product-price">$${item.price.toFixed(2)}</p>
-                </div>
-                <div class="quantity-controls">
-                    <button class="quantity-btn" onclick="updateQuantity('${item.productId}', ${item.quantity - 1})"
-                            ${item.quantity <= 1 ? 'disabled' : ''}>-</button>
-                    <span class="quantity">${item.quantity}</span>
-                    <button class="quantity-btn" onclick="updateQuantity('${item.productId}', ${item.quantity + 1})">+</button>
-                </div>
-                <div class="product-price">$${(item.price * item.quantity).toFixed(2)}</div>
-                <button class="remove-btn" onclick="removeItem('${item.productId}')">
-                    <i class="fas fa-trash"></i>
-                </button>
+        // 显示购物车商品
+        function displayCartItems(cartData) {
+    const cartItems = document.getElementById('cartItems');
+    cartItems.innerHTML = cartData.products.map(item => `
+        <div class="cart-item" data-id="${item.productId}">
+            <div class="product-image">
+                <img src="${item.image || 'https://via.placeholder.com/100'}" 
+                     alt="${item.name}"
+                     onerror="this.src='https://via.placeholder.com/100'">
             </div>
-        `).join('');
-    }
+            <div class="product-info">
+                <h3>${item.name}</h3>
+                <p class="product-price">$${item.price.toFixed(2)}</p>
+            </div>
+            <div class="quantity-controls">
+                <button class="quantity-btn" onclick="updateQuantity('${item.productId}', ${item.quantity - 1})"
+                        ${item.quantity <= 1 ? 'disabled' : ''}>-</button>
+                <span class="quantity">${item.quantity}</span>
+                <button class="quantity-btn" onclick="updateQuantity('${item.productId}', ${item.quantity + 1})">+</button>
+            </div>
+            <div class="product-price">$${(item.price * item.quantity).toFixed(2)}</div>
+            <button class="remove-btn" onclick="removeFromCart('${item.productId}')">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `).join('');
+}
+        // 更新商品数量
+        async function updateQuantity(productId, newQuantity) {
+            const user = checkLogin();
+            if (!user) return;
 
-    // Update the cart quantity
-    async function updateQuantity(productId, newQuantity) {
-        const user = checkLoginStatus();
-        if (!user) {
-            alert('Please log in first');
-            return;
-        }
-
-        if (newQuantity < 1) {
-            if (confirm('Remove this item from cart?')) {
-                await removeFromCart(productId);
+            if (newQuantity < 1) {
+                if (confirm('Remove this item from cart?')) {
+                    await removeFromCart(productId);
+                }
+                return;
             }
-            return;
-        }
 
-        try {
-            const response = await fetch(`http://localhost:3000/api/cart/${user._id}/update`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    productId: productId,
-                    quantity: newQuantity
-                })
-            });
+            try {
+                const response = await fetch(`http://localhost:3000/api/cart/update`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId: user._id,
+                        productId: productId,
+                        quantity: newQuantity
+                    })
+                });
 
-            const result = await response.json();
-            if (result.success) {
-                loadCart(); // Reload the cart
-            } else {
-                alert(result.message || 'Failed to update quantity');
+                const result = await response.json();
+                if (result.success) {
+                    loadCart(); // 重新加载购物车
+                } else {
+                    alert(result.message || 'Failed to update quantity');
+                }
+            } catch (error) {
+                console.error('Error updating quantity:', error);
+                alert('Failed to update quantity. Please try again.');
             }
-        } catch (error) {
-            console.error('Error updating quantity:', error);
-            alert('Failed to update quantity. Please try again.');
-        }
-    }
-
-    // Update cart summary (subtotal, shipping, total)
-    function updateCartSummary(cartData) {
-        const subtotal = cartData.products.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const shipping = subtotal > 50 ? 0 : 10;
-        const total = subtotal + shipping;
-
-        document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
-        document.getElementById('shipping').textContent = `$${shipping.toFixed(2)}`;
-        document.getElementById('total').textContent = `$${total.toFixed(2)}`;
-        document.querySelector('.cart-summary').style.display = 'block';
-    }
-
-    // Remove item from the cart
-    async function removeFromCart(productId) {
-        const user = checkLoginStatus();
-        if (!user) {
-            alert('Please log in first');
-            return;
         }
 
-        try {
-            const response = await fetch(`http://localhost:3000/api/cart/${user._id}/remove`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    productId
-                })
-            });
+        // 更新购物车总计
+        function updateCartSummary(cartData) {
+    const subtotal = cartData.products.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const shipping = subtotal > 50 ? 0 : 10;
+    const total = subtotal + shipping;
 
-            const result = await response.json();
-            if (result.success) {
-                alert('Item removed from cart successfully.');
-                loadCart(); // Reload the cart
-            } else {
-                alert(result.message || 'Failed to remove item');
+    document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
+    document.getElementById('shipping').textContent = `$${shipping.toFixed(2)}`;
+    document.getElementById('total').textContent = `$${total.toFixed(2)}`;
+    document.querySelector('.cart-summary').style.display = 'block';
+}
+        
+
+        // 移除商品
+        async function removeFromCart(productId) {
+            const user = checkLogin();
+            if (!user) return;
+
+            try {
+                const response = await fetch(`http://localhost:3000/api/cart/remove`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        productId: productId
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    loadCart(); // 重新加载购物车
+                } else {
+                    alert(result.message || 'Failed to remove item');
+                }
+            } catch (error) {
+                console.error('Error removing item:', error);
+                alert('Failed to remove item. Please try again.');
             }
-        } catch (error) {
-            console.error('Error removing item:', error);
-            alert('Failed to remove item. Please try again.');
         }
-    }
 
-    // Checkout logic
-    function checkout() {
-        if (!checkLoginStatus()) return;
-        alert('Proceeding to checkout...');
-    }
 
-    // On page load, load the cart data
-    document.addEventListener('DOMContentLoaded', loadCart);
+        // 显示错误信息
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'warning';
+            errorDiv.innerHTML = message;
+            document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.cart-container'));
+            setTimeout(() => errorDiv.remove(), 3000);
+        }
 
-</script>
+        // 结账功能
+        function checkout() {
+            if (!checkLogin()) return;
+            // 实现结账逻辑
+            alert('Proceeding to checkout...');
+            // window.location.href = 'checkout.html';
+        }
 
+        // 页面加载时加载购物车
+        document.addEventListener('DOMContentLoaded', loadCart);
+
+        // 登出功能
+        function logout() {
+            localStorage.removeItem('userData');
+            window.location.href = 'login.html';
+        }
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            updateNavigation();
+            loadCart();
+        });
+    </script>
 </body>
 </html>
