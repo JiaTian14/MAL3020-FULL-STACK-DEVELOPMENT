@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const Seller = require('../models/Seller'); // Import the Seller model
+const Seller = require('/models/Seller'); // Import the Seller model
 const router = express.Router();
 
 // Secret key for JWT

@@ -32,11 +32,11 @@ router.put('/:productId', async (req, res) => {
           return res.status(404).json({ message: 'Product not found' });
       }
 
-      res.json(updatedProduct); // Return the updated product
+      res.json({ success: true, data: updatedProduct }); // Return the updated product
   } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Server error' });
-  }
+    console.error('Error updating product:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+}
 });
 
 module.exports = router;

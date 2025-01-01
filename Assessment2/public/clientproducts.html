@@ -301,7 +301,7 @@
             <span class="close-btn" onclick="closeEditModal()">&times;</span>
             <h2>Edit Product</h2>
             <form id="editForm">
-                <input type="hidden" id="editProductId">
+                <input type="hidden" id="editProductId" name="editProductId">
                 <label for="editProductName">Name:</label>
                 <input type="text" id="editProductName" required><br><br>
         
@@ -320,7 +320,7 @@
                 <label for="editProductImage">Image URL:</label>
                 <input type="text" id="editProductImage" required><br><br>
         
-                <button type="submit">Save Changes</button>
+                <button type="submit" class="save-btn" >Save Changes</button>
                 <button type="button" onclick="closeModal()">Cancel</button>
             </form>
         </div>
@@ -333,87 +333,88 @@
     try {
         const response = await fetch('http://localhost:3000/api/products');
         const result = await response.json();
-        console.log('Product data received:', result);
 
-        // Check if the response indicates success and contains the data array
-        if (result.success && Array.isArray(result.data)) {
-            const products = result.data; // Access the products array
-            const productsGrid = document.getElementById('productsGrid');
-            
-
-                productsGrid.innerHTML = products.map(product => {
-                    console.log('Processing product:', product);
-                    const productId = product._id ? product._id.$oid || product._id : 'N/A'; // Ensure productId is defined
-                    console.log('Product ID:', productId); // Debug log
-                    // Access the price safely
-                    const price = parseFloat(product.price?.$numberDouble || product.price || 0);
-                    const stock = product.stock?.$numberInt || product.stock || 'N/A';
-
-
-            return `
-                <div class="product-card">
-                    <div class="product-image">
-                        <img src="${product.image || 'https://via.placeholder.com/300x200'}" 
-                             alt="${product.name}">
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">${product.name}</h3>
-                        <div class="product-price">$${price.toFixed(2)}</div>
-                        <div class="product-stock">Stock: ${stock}</div>
-
-                        <div class="product-actions">
-                            <button class="edit-btn" onclick="editProduct('${productId}')">
-                                <i class="fas fa-edit"></i> Edit
-                            </button>
-                            <button class="delete-btn" onclick="deleteProduct('${productId}')">
-                                <i class="fas fa-trash"></i> Delete
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    } else {
-            console.error('Unexpected response format:', result);
-            alert('Failed to load products. Please try again.');
+        if (!result.success) {
+            throw new Error(result.message || 'Failed to load products');
         }
 
+        const productsGrid = document.getElementById('productsGrid');
+        // Clear the grid before rendering new products
+        productsGrid.innerHTML = '';
 
+        // Check if data exists and is an array
+        if (!Array.isArray(result.data) || result.data.length === 0) {
+            productsGrid.innerHTML = '<p>No products available</p>';
+            return;
+        }
+        productsGrid.innerHTML = result.data.map(product => `
+            <div class="product-card">
+                <div class="product-image">
+                    <img src="${product.image || 'https://via.placeholder.com/300x200'}" 
+                         alt="${product.name}">
+                </div>
+                <div class="product-info">
+                    <h3 class="product-name">${product.name}</h3>
+                    <div class="product-price">$${product.price.toFixed(2)}</div>
+                    <div class="product-stock">Stock: ${product.stock}</div>
+                    <div class="product-actions">
+                        <button class="edit-btn" onclick="editProduct('${product._id}')">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button class="delete-btn" onclick="deleteProduct('${product._id}')">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
     } catch (error) {
         console.error('Error loading products:', error);
-        alert('Unable to fetch products. Check your server connection.');
+        alert('Error loading products: ' + error.message);
     }
 }
         
 
 // Event listener for product form submission
-document.getElementById('productForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
+document.addEventListener('DOMContentLoaded', () => {
+    // Product Form Handler
+    const productForm = document.getElementById('productForm');
+    productForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
 
-    const productData = {
-        name: document.getElementById('name').value,
-        description: document.getElementById('description').value,
-        price: parseFloat(document.getElementById('price').value),
-        stock: parseInt(document.getElementById('stock').value),
-        category: document.getElementById('category').value,
-        image: document.getElementById('image').value
-    };
+        const productData = {
+            name: document.getElementById('name').value,
+            description: document.getElementById('description').value,
+            price: parseFloat(document.getElementById('price').value),
+            stock: parseInt(document.getElementById('stock').value),
+            category: document.getElementById('category').value,
+            image: document.getElementById('image').value
+        };
 
-    const url = currentProductId 
-        ? `http://localhost:3000/api/products/${currentProductId}` 
-        : 'http://localhost:3000/api/products';
-    const method = currentProductId ? 'PUT' : 'POST';
+        try {
+            const response = await fetch('http://localhost:3000/api/products', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(productData)
+            });
 
-    const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(productData)
+            const result = await response.json();
+
+            if (result.success) {
+                alert('Product added successfully!');
+                productForm.reset();
+                closeModal();
+                loadProducts(); // Reload the products list
+            } else {
+                throw new Error(result.message || 'Failed to add product');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert(error.message);
+        }
     });
-
-    if (response.ok) {
-        closeModal();
-        loadProducts();  // Reload the list of products
-    }
 });
 
 // Open modal to add/edit product
@@ -430,23 +431,27 @@ function openModal(productId = null) {
     }
 
     // Close modal and reset the form
+    
 function closeModal() {
-    const productModal = document.getElementById('productModal');
     const editModal = document.getElementById('editModal');
-
-    // Check if the modals are visible and hide them
-    if (productModal) {
-        productModal.style.display = 'none';
-    }
     if (editModal) {
         editModal.style.display = 'none';
     }
-
-    // Reset the forms
-    const productForm = document.getElementById('productForm');
+    // Reset form
     const editForm = document.getElementById('editForm');
-    if (productForm) productForm.reset();
-    if (editForm) editForm.reset();
+    if (editForm) {
+        editForm.reset();
+    }
+
+    const productModal = document.getElementById('productModal');
+    if (productModal) {
+        productModal.style.display = 'none';
+    }
+    // Reset form
+    const productForm = document.getElementById('productForm');
+    if (productForm) {
+        productForm.reset();
+    }
 
     // Optionally, reset the current product ID if needed
     currentProductId = null;
@@ -462,6 +467,14 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error("Cancel button not found");
     }
 });
+
+const submitButton = document.querySelector('#editForm button[type="submit"]');
+submitButton.disabled = true;
+try {
+    // ... your update code ...
+} finally {
+    submitButton.disabled = false;
+}
 
 
 
@@ -485,7 +498,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('productForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const productData = {
+            const newProduct = {
                 name: document.getElementById('name').value,
                 description: document.getElementById('description').value,
                 price: parseFloat(document.getElementById('price').value),
@@ -495,80 +508,59 @@ document.addEventListener('DOMContentLoaded', function() {
             };
 
             try {
-                const url = currentProductId 
-                    ? `http://localhost:3000/api/products/${currentProductId}`
-                    : 'http://localhost:3000/api/products';
-                
-                const method = currentProductId ? 'PUT' : 'POST';
-
-                const response = await fetch(url, {
-                    method,
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(productData)
-                });
-
-                if (response.ok) {
-                    closeModal();
-                    loadProducts();
-                }else {
-                    const errorData = await response.json();
-                    alert(`Error: ${errorData.message}`);
-                }
-            } catch (error) {
-                console.error('Error saving product:', error);
-            }
+        const response = await fetch('http://localhost:3000/api/products', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newProduct),
         });
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert('Product added successfully!');
+            productForm.reset();
+            closeModal();
+            await loadProducts(); // 确保调用一次
+        } else {
+            throw new Error(result.message || 'Failed to add product');
+        }
+    } catch (error) {
+        console.error('Error adding product:', error);
+        alert(error.message);
+    }
+});
 
 
         // Add this function to handle editing products
         async function editProduct(productId) {
     try {
-        // First, check if productId is valid
-        console.log('Edit product called with productId:', productId);
-        if (!productId) {
-            throw new Error('Product ID is missing');
-        }
-
+        console.log('Loading product:', productId);
         const response = await fetch(`http://localhost:3000/api/products/${productId}`);
-        console.log('API response status:', response.status);
-
-        if (!response.ok) {
-            throw new Error(`Failed to fetch product data. Status: ${response.status}`);
-        }
-
         const result = await response.json();
-        console.log('Fetched product data:', result); // Debug log
 
-        // Make sure we have valid product data
-        if (!result || !result.data) {
-            throw new Error('No product data received');
+        if (!result.success) {
+            throw new Error(result.message || 'Failed to fetch product');
         }
 
-        const product = result.data; 
-        console.log('Product details:', product);
+        const product = result.data;
+        console.log('Loaded product data:', product); // Debug log
 
-        // Safely access the product ID
-        document.getElementById('editProductId').value = product._id; // Adjusted to match your API response
+        // Populate edit form
+        document.getElementById('editProductId').value = product._id;
+        document.getElementById('editProductName').value = product.name;
+        document.getElementById('editProductDescription').value = product.description;
+        document.getElementById('editProductPrice').value = product.price;
+        document.getElementById('editProductStock').value = product.stock;
+        document.getElementById('editProductCategory').value = product.category;
+        document.getElementById('editProductImage').value = product.image;
 
-        // Populate the form fields
-        document.getElementById('editProductName').value = product.name || '';
-        document.getElementById('editProductDescription').value = product.description || '';
-        document.getElementById('editProductPrice').value = product.price || 0; // Adjusted for your API response
-        document.getElementById('editProductStock').value = product.stock || 0; // Adjusted for your API response
-        document.getElementById('editProductCategory').value = product.category || '';
-        document.getElementById('editProductImage').value = product.image || '';
-
-        // Show the edit modal
+        // Show edit modal
         document.getElementById('editModal').style.display = 'block';
-        console.log('Edit modal displayed');
     } catch (error) {
-        console.error('Error details:', error);
-        alert(`Failed to load product data: ${error.message}`);
+        console.error('Error loading product:', error);
+        alert(error.message);
     }
 }
-
 document.getElementById('editForm').addEventListener('submit', async (event) => {
     event.preventDefault(); // Prevent default form submission
 
@@ -600,19 +592,17 @@ document.getElementById('editForm').addEventListener('submit', async (event) => 
             },
             body: JSON.stringify(updatedProduct)
         });
+        const result = await response.json();
+        console.log('Server response:', result); // Debug log
 
-        if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Server error:', errorData);
-        throw new Error(errorData.message || 'Failed to update product');
-    }
+        
+    
 
-    const result = await response.json();
-    console.log('Update result:', result);
-
+    
+    alert('Product updated successfully');
         closeModal();
         await loadProducts(); // Refresh the product list
-        alert('Product updated successfully');
+        
     } catch (error) {
         console.error('Error during update:', error);
         alert(`Failed to update product: ${error.message}`);

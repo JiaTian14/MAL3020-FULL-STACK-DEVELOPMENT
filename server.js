@@ -7,6 +7,7 @@ const mongoose = require('mongoose');
 const { v4: uuidv4 } = require('uuid');
 const bodyParser = require('body-parser');
 const session = require('express-session');
+const Product = require('./Assessment2/models/product'); // Corrected the path to the Product model
 
 // Middleware
 app.use(express.json());
@@ -25,23 +26,44 @@ app.use(cors(corsOptions));
 const uri = "mongodb+srv://Tan:1234@assessment.2jgmj.mongodb.net/?retryWrites=true&w=majority&appName=Assessment";
 let client;
 
+// Connect to MongoDB using Mongoose
+mongoose.connect(uri).then(() => {
+    console.log('Mongoose connected to MongoDB');
+}).catch((err) => {
+    console.error('Mongoose connection error:', err);
+});
+
+// Start the server only after a successful Mongoose connection
+mongoose.connection.once('open', () => {
+    console.log('Mongoose connection is open');
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+    });
+});
+
 // Connect to MongoDB
 async function connectDB() {
     if (!client) {
         client = new MongoClient(uri,);
         await client.connect();
         console.log('Connected to MongoDB');
-        console.log('Using MongoDB URI:', uri);
-
     }
     return client;
-    
 }
 
 // Helper function for error handling
 const asyncHandler = (fn) => (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);
 };
+
+// Middleware to check Mongoose connection
+app.use((req, res, next) => {
+    if (mongoose.connection.readyState !== 1) {
+        return res.status(500).json({ success: false, message: 'Database connection error' });
+    }
+    next();
+});
 
 // ---------- GET Routes ----------
 // Get default homepage
@@ -947,53 +969,141 @@ app.get('/api/sellers/dashboard', async (req, res) => {
 
 // Update product endpoint
 app.put('/api/products/:id', async (req, res) => {
-    const { id } = req.params;
-    const { name, description, price, stock, category, image } = req.body;
-
     try {
-        const updatedProduct = await Product.findByIdAndUpdate(
-            id,
-            { name, description, price, stock, category, image },
-            { new: true }
-        );
-        if (!updatedProduct) {
-            return res.status(404).json({ success: false, message: 'Product not found' });
+        const productId = req.params.id;
+        const updateData = req.body;
+        
+        console.log('Updating product:', productId); // Debug log
+        console.log('Update data:', updateData); // Debug log
+
+        const client = await connectDB();
+        const database = client.db("techmart");
+        const products = database.collection("products");
+
+        // Make sure we have a valid ObjectId
+        if (!ObjectId.isValid(productId)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid product ID format'
+            });
         }
-        res.status(200).json({ success: true, data: updatedProduct });
+
+        // First check if the product exists
+        const existingProduct = await products.findOne({ _id: objectId });
+        if (!existingProduct) {
+            console.log('Product not found:', productId); // Debug log
+            return res.status(404).json({
+                success: false,
+                message: 'Product not found'
+            });
+        }
+
+        // Convert string ID to ObjectId
+        const objectId = new ObjectId(productId);
+
+        const result = await products.findOneAndUpdate(
+            { _id: objectId },
+            { $set: {
+                ...updateData,
+                updatedAt: new Date()
+            }},
+            { returnDocument: 'after' }
+        );
+
+        console.log('Update result:', result); // Debug log
+
+        if (!result.value) {
+            return res.status(404).json({
+                success: false,
+                message: 'Product not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: result.value,
+            message: 'Product updated successfully'
+        });
+
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ success: false, message: 'Failed to update product' });
+        console.error('Error updating product:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error updating product',
+            error: error.message
+        });
     }
 });
+
 
 
 // DELETE a product by ID
 app.delete('/api/products/:id', async (req, res) => {
     try {
-        const deletedProduct = await Product.findByIdAndDelete(req.params.id);
+        const productId = req.params.id;
+        const client = await connectDB();
+        const database = client.db("techmart");
+        const products = database.collection("products");
 
-        if (!deletedProduct) {
-            return res.status(404).json({ message: 'Product not found' });
+        const result = await products.deleteOne({
+            _id: new ObjectId(productId)
+        });
+
+        if (result.deletedCount === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Product not found'
+            });
         }
 
-        res.status(200).json({ message: 'Product deleted successfully' });
+        res.json({
+            success: true,
+            message: 'Product deleted successfully'
+        });
+
     } catch (error) {
-        res.status(500).json({ message: 'Failed to delete product', error: error.message });
+        console.error('Error deleting product:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to delete product',
+            error: error.message
+        });
     }
 });
 
-
 app.post('/api/products', async (req, res) => {
     try {
-        const newProduct = new Product(req.body);
+        const client = await connectDB();
+        const database = client.db("techmart");
+        const products = database.collection("products");
 
-        // Save the new product to the database
-        const savedProduct = await newProduct.save();
+        const newProduct = {
+            ...req.body,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
 
-        res.status(201).json({ success: true, data: savedProduct });
+        const result = await products.insertOne(newProduct);
+        
+        if (!result.insertedId) {
+            throw new Error('Failed to insert product');
+        }
+
+        res.status(201).json({
+            success: true,
+            data: {
+                _id: result.insertedId,
+                ...newProduct
+            }
+        });
+
     } catch (error) {
         console.error('Error adding product:', error);
-        res.status(500).json({ success: false, message: 'Failed to add product' });
+        res.status(500).json({
+            success: false,
+            message: 'Failed to add product',
+            error: error.message
+        });
     }
 });
 
@@ -1016,12 +1126,4 @@ app.get('/api/orders', asyncHandler(async (req, res) => {
 app.use((err, req, res, next) => {
     console.error(err.message);
     res.status(500).json({ message: err.message });
-});
-
-// ---------- Start Server ----------
-const PORT = process.env.PORT || 3000;
-connectDB();
-// 在服务器启动时添加示例产品
-app.listen(PORT, async () => {
-    console.log(`Server is running on port ${PORT}`);
 });
