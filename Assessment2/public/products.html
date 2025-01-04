@@ -379,83 +379,101 @@
   </div>
 
   <script>
+    let allProducts = []; // Store all products
+
     async function fetchProducts() {
-  try {
-    const productList = document.getElementById('productList');
-    productList.innerHTML = '<div class="loading">Loading products...</div>';
+        try {
+            const productList = document.getElementById('productList');
+            productList.innerHTML = '<div class="loading">Loading products...</div>';
 
             console.log('Fetching products from API...');
-    const response = await fetch('http://localhost:3000/api/products');
+            const response = await fetch('http://localhost:3000/api/products');
             console.log('Response status:', response.status);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
-    const data = await response.json();
+            const data = await response.json();
             console.log('Products data:', data);
 
             if (!data.success) {
                 throw new Error(data.message || 'Failed to fetch products');
             }
 
-            const products = data.data;
-    if (!Array.isArray(products) || products.length === 0) {
-      productList.innerHTML = '<div class="error">No products found</div>';
-      return;
+            allProducts = data.data; // Store fetched products
+
+            if (!Array.isArray(allProducts) || allProducts.length === 0) {
+                productList.innerHTML = '<div class="error">No products found</div>';
+                return;
+            }
+
+            // Display products
+            displayProducts(allProducts);
+
+        } catch (error) {
+            console.error('Error fetching products:', error);
+            const productList = document.getElementById('productList');
+            productList.innerHTML = `
+                <div class="error">
+                    Error loading products. Please try again later.<br>
+                    Details: ${error.message}<br>
+                    <button onclick="fetchProducts()" class="retry-button">Retry</button>
+                </div>
+            `;
+        }
     }
 
-    // Clear the loading text
-    productList.innerHTML = '';
-    
-            // Display products
-    products.forEach(product => {
-      const productCard = document.createElement('div');
-      productCard.classList.add('product-card');
-                productCard.setAttribute('data-id', product._id);
+    function displayProducts(products) {
+        const productList = document.getElementById('productList');
+        productList.innerHTML = ''; // Clear the product list
 
-      productCard.innerHTML = `
-        <div class="product-image">
-          <img src="${product.image || 'https://via.placeholder.com/300x250'}" 
-               alt="${product.name}"
-               onerror="this.src='https://via.placeholder.com/300x250'">
-        </div>
-        <div class="product-info">
-                        <h3 class="product-name">${product.name}</h3>
-                        <p class="product-category">${product.category}</p>
-                        <p class="product-price">$${product.price.toFixed(2)}</p>
-                        <p class="product-stock ${product.stock <= 0 ? 'out-of-stock' : ''}">
-                            ${product.stock > 0 ? `In Stock (${product.stock})` : 'Out of Stock'}
-                        </p>
-                        <button onclick="addToCart(event, '${product._id}')" class="add-to-cart-btn" 
-                            ${product.stock <= 0 ? 'disabled' : ''}>
-                            ${product.stock > 0 ? 'Add to Cart' : 'Out of Stock'}
-                        </button>
-        </div>
-      `;
+        products.forEach(product => {
+            const productCard = document.createElement('div');
+            productCard.classList.add('product-card');
+            productCard.setAttribute('data-id', product._id);
 
-      productCard.addEventListener('click', () => {
-                    window.location.href = `productDetails.html?id=${product._id}`;
-      });
+            productCard.innerHTML = `
+                <div class="product-image">
+                    <img src="${product.image || 'https://via.placeholder.com/300x250'}" 
+                        alt="${product.name}"
+                        onerror="this.src='https://via.placeholder.com/300x250'">
+                </div>
+                <div class="product-info">
+                    <h3 class="product-name">${product.name}</h3>
+                    <p class="product-category">${product.category}</p>
+                    <p class="product-price">$${product.price.toFixed(2)}</p>
+                    <p class="product-stock ${product.stock <= 0 ? 'out-of-stock' : ''}">
+                        ${product.stock > 0 ? `In Stock (${product.stock})` : 'Out of Stock'}
+                    </p>
+                    <button onclick="addToCart(event, '${product._id}')" class="add-to-cart-btn" 
+                        ${product.stock <= 0 ? 'disabled' : ''}>
+                        ${product.stock > 0 ? 'Add to Cart' : 'Out of Stock'}
+                    </button>
+                </div>
+            `;
 
-      productList.appendChild(productCard);
-    });
+            productCard.addEventListener('click', () => {
+                window.location.href = `productDetails.html?id=${product._id}`;
+            });
 
-  } catch (error) {
-    console.error('Error fetching products:', error);
-    const productList = document.getElementById('productList');
-    productList.innerHTML = `
-      <div class="error">
-        Error loading products. Please try again later.<br>
-        Details: ${error.message}<br>
-        <button onclick="fetchProducts()" class="retry-button">Retry</button>
-      </div>
-    `;
-  }
-}
+            productList.appendChild(productCard);
+        });
+    }
+
+    function filterProducts() {
+        const searchInput = document.getElementById('searchInput').value.toLowerCase();
+        const filteredProducts = allProducts.filter(product => 
+            product.name.toLowerCase().includes(searchInput)
+        );
+        displayProducts(filteredProducts);
+    }
 
     // Load products when the page loads
     document.addEventListener('DOMContentLoaded', fetchProducts);
+
+    // Add event listener to the search input
+    document.getElementById('searchInput').addEventListener('input', filterProducts);
 
     async function addToCart(event, productId) {
         event.stopPropagation(); // 阻止事件冒泡到产品卡片

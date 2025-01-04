@@ -40,7 +40,7 @@ mongoose.connect(uri, {
 mongoose.connection.once('open', () => {
     console.log('Mongoose connection is open');
     const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
         console.log(`Server is running on port ${PORT}`);
     });
 });
@@ -1042,5 +1042,4 @@ app.get('/api/orders', asyncHandler(async (req, res) => {
 // ---------- Error Handling ----------
 app.use((err, req, res, next) => {
     console.error(err.message);
-    res.status(500).json({ message: err.message });
 });
