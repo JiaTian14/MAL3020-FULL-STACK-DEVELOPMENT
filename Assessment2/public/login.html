@@ -338,7 +338,7 @@
                 // 确保保存完整的用户数据，包括 userId
                 localStorage.setItem('userData', JSON.stringify({
 
-                    _id: result.data.userId, // 注意这里使用 _id
+                    _id: result.data._id, // 注意这里使用 _id
                     username: result.data.username,
                     email: result.data.email
                 }));

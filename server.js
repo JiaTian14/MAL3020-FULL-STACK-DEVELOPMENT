@@ -414,7 +414,7 @@ app.post('/api/users/login', async (req, res) => {
 
         // Prepare user data to send back (excluding sensitive information)
         const userData = {
-            userId: user.userId,
+            _id: user._id,
             username: user.username,
             email: user.email,
             createdAt: user.createdAt
@@ -531,88 +531,6 @@ app.post('/api/cart/:userId/add', async (req, res) => {
   }
 });
 
-// 更新购物车商品数量
-app.post('/api/cart/:userId/update', async (req, res) => {
-  try {
-      const { userId } = req.params;
-      const { productId, newQuantity } = req.body;
-
-      // 输入验证
-      if (!userId || !productId || typeof newQuantity !== 'number') {
-          return res.status(400).json({
-              success: false,
-              message: 'Missing or invalid required fields'
-          });
-      }
-
-      if (newQuantity < 0) {
-          return res.status(400).json({
-              success: false,
-              message: 'Quantity cannot be negative'
-          });
-      }
-
-      const client = await connectDB();
-      const database = client.db("techmart");
-      const carts = database.collection("carts");
-      const products = database.collection("products");
-
-      // 检查产品库存
-      const product = await products.findOne({ _id: new ObjectId(productId) });
-      if (!product) {
-          return res.status(404).json({
-              success: false,
-              message: 'Product not found'
-          });
-      }
-
-      if (newQuantity > product.stock) {
-          return res.status(400).json({
-              success: false,
-              message: 'Requested quantity exceeds available stock'
-          });
-      }
-
-      if (newQuantity === 0) {
-          // 如果数量为0，删除商品
-          await carts.updateOne(
-              { userId },
-              { 
-                  $pull: { products: { productId } },
-                  $set: { updatedAt: new Date() }
-              }
-          );
-      } else {
-          // 更新数量
-          await carts.updateOne(
-              { userId, "products.productId": productId },
-              { 
-                  $set: { 
-                      "products.$.quantity": newQuantity,
-                      updatedAt: new Date()
-                  }
-              }
-          );
-      }
-
-      // 获取更新后的购物车
-      const updatedCart = await carts.findOne({ userId });
-
-      res.json({
-          success: true,
-          message: 'Cart updated successfully',
-          data: updatedCart
-      });
-
-  } catch (error) {
-      console.error('Error updating cart:', error);
-      res.status(500).json({
-          success: false,
-          message: 'Error updating cart',
-          error: error.message
-      });
-  }
-});
 
 // 从购物车中移除商品
 app.delete('/api/cart/:userId/remove', async (req, res) => {

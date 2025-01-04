@@ -541,8 +541,11 @@ let quantity = 1;
             }
 
             const user = JSON.parse(userData);
+            console.log('User data:', user);
             const urlParams = new URLSearchParams(window.location.search);
             const productId = urlParams.get('id');
+            const quantityElement = document.getElementById('quantity');
+            const quantity = parseInt(quantityElement.textContent);
 
             try {
                 const response = await fetch(`http://localhost:3000/api/cart/${user._id}/add`, {

@@ -387,12 +387,12 @@
         const user = JSON.parse(userData);
         console.log("User ID:", user._id); // 调试用
 
-        const response = await fetch(`http://localhost:3000/api/cart/${user._id}`);
+        const response = await fetch(`http://localhost:3001/api/cart/${user._id}`);
         const result = await response.json();
         console.log("Cart response:", result); // 调试用
 
-        if (result.success && result.data) {
-            if (!result.data.products || result.data.products.length === 0) {
+        if (result && result.products) {
+            if (result.products.length === 0) {
                 document.getElementById('cartItems').innerHTML = `
                     <div class="empty-cart">
                         <i class="fas fa-shopping-cart"></i>
@@ -401,8 +401,8 @@
                     </div>`;
                 document.querySelector('.cart-summary').style.display = 'none';
             } else {
-                displayCartItems(result.data);
-                updateCartSummary(result.data);
+                displayCartItems(result);
+                updateCartSummary(result);
             }
         } else {
             throw new Error('Invalid cart data received');
@@ -459,9 +459,16 @@
 }
         // 更新商品数量
         async function updateQuantity(productId, newQuantity) {
-            const user = checkLogin();
-            if (!user) return;
-
+            // First check if user is logged in and get user data
+            const userData = localStorage.getItem('userData');
+            if (!userData) {
+                alert('Please log in to update your cart');
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            const user = JSON.parse(userData);
+            
             if (newQuantity < 1) {
                 if (confirm('Remove this item from cart?')) {
                     await removeFromCart(productId);
@@ -470,15 +477,15 @@
             }
 
             try {
-                const response = await fetch(`http://localhost:3000/api/cart/update`, {
-                    method: 'PUT',
+                const response = await fetch(`http://localhost:3001/api/cart/${user._id}/update`, {
+                    method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         userId: user._id,
                         productId: productId,
-                        quantity: newQuantity
+                        newQuantity: newQuantity
                     })
                 });
 
@@ -509,8 +516,6 @@
 
         // 移除商品
         async function removeFromCart(productId) {
-            const user = checkLogin();
-            if (!user) return;
 
             try {
                 const response = await fetch(`http://localhost:3000/api/cart/remove`, {
@@ -547,10 +552,24 @@
 
         // 结账功能
         function checkout() {
-            if (!checkLogin()) return;
-            // 实现结账逻辑
-            alert('Proceeding to checkout...');
-            // window.location.href = 'checkout.html';
+            const userData = localStorage.getItem('userData');
+            if (!userData) {
+                alert('Please log in to checkout');
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Get the subtotal value
+            const subtotal = document.getElementById('subtotal').textContent.replace('$', '');
+            
+            // Store cart summary in localStorage
+            localStorage.setItem('cartSummary', JSON.stringify({
+                subtotal: parseFloat(subtotal),
+                shipping: 5.00, // Fixed shipping fee
+                total: parseFloat(subtotal) + 5.00
+            }));
+
+            window.location.href = 'checkout.html';
         }
 
         // 页面加载时加载购物车
