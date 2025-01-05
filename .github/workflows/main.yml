@@ -42,11 +42,11 @@ jobs:
           exit 1
         }
 
-    - name: Install dependencies
-      run: npm install || {
-        echo "Failed to install npm dependencies"
-        exit 1
-      }
+        - name: Install MongoDB client
+          run: |
+          sudo apt-get update
+          sudo apt-get install -y mongodb-clients
+
 
     - name: Wait for MongoDB to be ready
       run: |
