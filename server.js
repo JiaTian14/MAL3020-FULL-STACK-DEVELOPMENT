@@ -37,13 +37,15 @@ mongoose.connect(uri, {
 });
 
 // Start the server only after a successful Mongoose connection
-mongoose.connection.once('open', () => {
-    console.log('Mongoose connection is open');
-    const PORT = process.env.PORT || 3000;
-    const server = app.listen(PORT, () => {
-        console.log(`Server is running on port ${PORT}`);
+if (process.env.NODE_ENV !== 'test') {
+    mongoose.connection.once('open', () => {
+        console.log('Mongoose connection is open');
+        const PORT = process.env.PORT || 3000;
+        app.listen(PORT, () => {
+            console.log(`Server is running on port ${PORT}`);
+        });
     });
-});
+}
 
 // Connect to MongoDB
 async function connectDB() {
@@ -150,8 +152,6 @@ app.get('/api/test-db', async (req, res) => {
         return res.status(500).json({ success: false, message: "Database connection failed", error: error.message });
     }
 });
-
-
 
 // Get checkout details
 app.get('/api/checkout', asyncHandler(async (req, res) => {
@@ -1037,7 +1037,48 @@ app.get('/api/orders', asyncHandler(async (req, res) => {
     }
 }));
 
+// Define routes
+app.post('/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Email and password are required' });
+        }
 
+        const client = await connectDB();
+        const users = client.db("techmart").collection("users");
+        const user = await users.findOne({ email });
+
+        if (!user) {
+            return res.status(401).json({ message: 'Invalid email or password' });
+        }
+
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
+            return res.status(401).json({ message: 'Invalid email or password' });
+        }
+
+        return res.status(200).json({ token: 'dummy-token' });
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+app.post('/orders', async (req, res) => {
+    try {
+        const client = await connectDB();
+        const orders = client.db("techmart").collection("orders");
+        const result = await orders.insertOne(req.body);
+        res.status(201).json(result.ops[0]);
+    } catch (error) {
+        console.error('Order creation error:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+// Export the app for testing
+module.exports = app;
 
 // ---------- Error Handling ----------
 app.use((err, req, res, next) => {

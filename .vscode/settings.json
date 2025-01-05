@@ -7,5 +7,6 @@
   "liveServer.settings.CustomBrowser": "chrome",
   "liveServer.settings.AdvanceCustomBrowserCmdLine": "http://127.0.0.1:5500/Assessment2/public/index.html",
   "liveServer.settings.ChromeDebuggingAttachment": false,
-  "liveServer.settings.port": 5501
+  "liveServer.settings.port": 5501,
+  "zencoder.enableRepoIndexing": true
 }
