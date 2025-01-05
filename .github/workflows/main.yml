@@ -43,4 +43,4 @@ jobs:
         NODE_ENV: test
         DEBUG: mongodb:*,mongoose:*
       run: |
-        npm test
+        npm test -- --verbose --detectOpenHandles --forceExit --testTimeout=30000
