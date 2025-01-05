@@ -8,24 +8,27 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04  # Optionally specify a specific version of Ubuntu
 
     services:
       mongodb:
-        image: mongo:4.4  # Use a specific stable version
+        image: mongo:4.4  # Use a stable version of MongoDB
         ports:
           - 27017:27017
         options: >-
           --health-cmd "mongo --eval 'db.runCommand({ ping: 1 })'"
           --health-interval 10s
-          --health-timeout 10s  # Increased timeout
-          --health-retries 10   # Increased retries to handle slow startups
+          --health-timeout 30s  # Increased timeout for MongoDB startup
+          --health-retries 10    # Increased retries to handle slow startups
 
     strategy:
       matrix:
         node-version: [14.x, 16.x]  # Running jobs for both Node.js 14.x and 16.x
 
     steps:
+      - name: Check Docker version
+        run: docker --version
+
       - name: Checkout code
         uses: actions/checkout@v2
 
@@ -36,6 +39,17 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Show MongoDB container logs
+        run: docker logs mongodb
+        continue-on-error: true
+
+      - name: Wait for MongoDB to be ready
+        run: |
+          until docker exec mongodb mongo --eval "db.runCommand({ ping: 1 })"; do
+            echo "Waiting for MongoDB..."
+            sleep 5
+          done
 
       - name: Run tests
         env:
