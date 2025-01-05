@@ -13,13 +13,17 @@ jobs:
     services:
       mongodb:
         image: mongo:4.4
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: root
         ports:
           - 27017:27017
         options: >-
-          --health-cmd="mongosh --eval \"db.runCommand({ ping: 1 })\" --quiet"
+          --health-cmd="echo 'db.runCommand(\"ping\").ok' | mongosh localhost:27017/test --quiet"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=3
+          --health-start-period=30s
 
     strategy:
       matrix:
@@ -36,27 +40,33 @@ jobs:
         cache: 'npm'
         
     - name: Install dependencies
-      run: npm ci
-        
-    - name: Verify MongoDB connection
       run: |
-        echo "Waiting for MongoDB to accept connections..."
-        timeout 30s bash -c 'until nc -z localhost 27017; do sleep 1; done'
-        echo "MongoDB is up and running!"
+        npm ci
+        
+    - name: Verify MongoDB Connection
+      run: |
+        echo "Waiting for MongoDB to be ready..."
+        for i in {1..30}; do
+          if echo "db.runCommand('ping').ok" | mongosh --quiet; then
+            echo "MongoDB is ready!"
+            break
+          fi
+          echo "Attempt $i: MongoDB not ready yet..."
+          sleep 2
+        done
       
     - name: Run tests
       env:
-        MONGODB_URI: mongodb://localhost:27017/testDatabase
+        MONGODB_URI: mongodb://root:root@localhost:27017/testDatabase?authSource=admin
         NODE_ENV: test
         CI: true
       run: |
-        mkdir -p coverage
-        npm test -- --coverage --coverageDirectory=./coverage --json --outputFile=./coverage/jest-results.json
-
-    - name: Upload test coverage
-      if: success()
+        npm test
+        
+    - name: Upload test results
+      if: always()
       uses: actions/upload-artifact@v3
       with:
-        name: coverage-node-${{ matrix.node-version }}
+        name: test-results-node-${{ matrix.node-version }}
         path: coverage
         if-no-files-found: warn
