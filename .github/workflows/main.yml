@@ -41,7 +41,7 @@ jobs:
       run: |
         for i in {1..30}; do
           echo "Checking if MongoDB is ready... Attempt $i"
-          if docker exec mongodb mongo --eval "db.runCommand({ ping: 1 })"; then
+          if mongo --eval "db.runCommand({ ping: 1 })" --quiet; then
             echo "MongoDB is ready"
             break
           fi
