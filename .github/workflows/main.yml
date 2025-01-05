@@ -16,15 +16,15 @@ jobs:
         ports:
           - 27017:27017
         options: >-
-          --health-cmd mongosh --eval "db.runCommand({ ping: 1 })"
-          --health-interval 10s
-          --health-timeout 30s
-          --health-retries 5
+          --health-cmd="mongosh --eval \"db.runCommand({ ping: 1 })\" --quiet"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
 
     strategy:
       matrix:
-        node-version: [16, 18]  # Removing Node 14 as it's EOL
-      fail-fast: false  # Continue with other versions if one fails
+        node-version: [16, 18]
+      fail-fast: false
 
     steps:
     - uses: actions/checkout@v3
@@ -35,18 +35,14 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
         
-    - name: Install MongoDB tools
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y mongodb-mongosh
-        
     - name: Install dependencies
-      run: |
-        npm ci
+      run: npm ci
         
-    - name: Wait for MongoDB
+    - name: Verify MongoDB connection
       run: |
-        timeout 30s bash -c 'until mongosh --eval "db.runCommand({ ping: 1 })" --quiet; do sleep 2; done'
+        echo "Waiting for MongoDB to accept connections..."
+        timeout 30s bash -c 'until nc -z localhost 27017; do sleep 1; done'
+        echo "MongoDB is up and running!"
       
     - name: Run tests
       env:
@@ -54,14 +50,13 @@ jobs:
         NODE_ENV: test
         CI: true
       run: |
-        npm test -- --verbose --forceExit
-        
-    - name: Upload test results
-      if: always()
+        mkdir -p coverage
+        npm test -- --coverage --coverageDirectory=./coverage --json --outputFile=./coverage/jest-results.json
+
+    - name: Upload test coverage
+      if: success()
       uses: actions/upload-artifact@v3
       with:
-        name: test-results-node-${{ matrix.node-version }}
-        path: |
-          coverage/
-          junit.xml
-        retention-days: 7
+        name: coverage-node-${{ matrix.node-version }}
+        path: coverage
+        if-no-files-found: warn
