@@ -9,60 +9,59 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-
+    
     services:
       mongodb:
         image: mongo:4.4
         ports:
           - 27017:27017
         options: >-
-          --health-cmd "mongo --eval 'db.runCommand({ ping: 1 })'"
+          --health-cmd mongosh --eval "db.runCommand({ ping: 1 })"
           --health-interval 10s
           --health-timeout 30s
-          --health-retries 10
+          --health-retries 5
 
     strategy:
       matrix:
-        node-version: [14, 16, 18] # Test against multiple Node.js versions
+        node-version: [16, 18]  # Removing Node 14 as it's EOL
+      fail-fast: false  # Continue with other versions if one fails
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-
-    - name: Set up Node.js
-      uses: actions/setup-node@v2
+    - uses: actions/checkout@v3
+      
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
-
-    - name: Install MongoDB client
+        cache: 'npm'
+        
+    - name: Install MongoDB tools
       run: |
         sudo apt-get update
-        sudo apt-get install -y mongodb-clients
-
+        sudo apt-get install -y mongodb-mongosh
+        
     - name: Install dependencies
-      run: npm install
-
-    - name: Wait for MongoDB to be ready
       run: |
-        for i in {1..30}; do
-          echo "Checking if MongoDB is ready... Attempt $i"
-          if mongo --eval "db.runCommand({ ping: 1 })" --quiet; then
-            echo "MongoDB is ready"
-            break
-          fi
-          echo "Waiting for MongoDB..."
-          sleep 10
-        done
-        if [ $i -eq 30 ]; then
-          echo "MongoDB did not start in time"
-          exit 1
-        fi
-
+        npm ci
+        
+    - name: Wait for MongoDB
+      run: |
+        timeout 30s bash -c 'until mongosh --eval "db.runCommand({ ping: 1 })" --quiet; do sleep 2; done'
+      
     - name: Run tests
       env:
         MONGODB_URI: mongodb://localhost:27017/testDatabase
+        NODE_ENV: test
+        CI: true
       run: |
-        npm test || {
-          echo "Tests failed"
-          exit 1
-        }
+        npm test -- --verbose --forceExit
+        
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results-node-${{ matrix.node-version }}
+        path: |
+          coverage/
+          junit.xml
+        retention-days: 7
