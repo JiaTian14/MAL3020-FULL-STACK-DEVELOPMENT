@@ -18,7 +18,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18]  # Start with just Node 18 to debug
+        node-version: [18]
       fail-fast: false
 
     steps:
@@ -29,50 +29,34 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         
-    - name: Debug Environment
+    - name: Install MongoDB Shell
       run: |
-        echo "Node version: $(node -v)"
-        echo "NPM version: $(npm -v)"
-        echo "Operating System: $(uname -a)"
-        echo "Current directory: $(pwd)"
-        ls -la
+        sudo apt-get update
+        sudo apt-get install -y wget gnupg
+        wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | sudo apt-key add -
+        echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list
+        sudo apt-get update
+        sudo apt-get install -y mongodb-mongosh
         
     - name: Install dependencies
       run: |
-        echo "Installing dependencies..."
-        npm ci --verbose
-        echo "Dependencies installed successfully"
+        npm ci
         
-    - name: Verify MongoDB
+    - name: Check MongoDB Connection
       run: |
-        echo "Checking MongoDB connection..."
-        echo "show dbs" | mongosh --quiet localhost:27017
-        echo "MongoDB check completed"
+        echo "Waiting for MongoDB to be ready..."
+        for i in {1..30}; do
+          if mongosh --eval "db.runCommand({ping:1})" --quiet; then
+            echo "MongoDB is ready!"
+            break
+          fi
+          echo "Attempt $i: Waiting for MongoDB..."
+          sleep 2
+        done
         
-    - name: List Test Files
-      run: |
-        echo "Test files in __tests__ directory:"
-        ls -R __tests__/
-        
-    - name: Run tests with debugging
+    - name: Run tests
       env:
         MONGODB_URI: mongodb://localhost:27017/testDatabase
         NODE_ENV: test
-        DEBUG: "test:*,mongodb:*"
-        CI: true
       run: |
-        echo "Starting tests..."
-        npm test -- --verbose --detectOpenHandles --runInBand --forceExit
-      
-    - name: Debug test failures
-      if: failure()
-      run: |
-        echo "=== Test Debug Information ==="
-        echo "MongoDB Status:"
-        ps aux | grep mongo
-        echo "=== MongoDB Logs ==="
-        mongosh --eval "db.adminCommand('getLog', 'global')"
-        echo "=== Node Process Information ==="
-        ps aux | grep node
-        echo "=== Directory Structure ==="
-        ls -R
+        npm test -- --verbose --forceExit
