@@ -9,67 +9,70 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-
+    
     services:
       mongodb:
         image: mongo:4.4
         ports:
           - 27017:27017
-        options: >-
-          --health-cmd "mongo --eval 'db.runCommand({ ping: 1 })'"
-          --health-interval 10s
-          --health-timeout 30s
-          --health-retries 10
 
     strategy:
       matrix:
-        node-version: [14, 16, 18] # Test against multiple Node.js versions
+        node-version: [18]  # Start with just Node 18 to debug
+      fail-fast: false
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-
-    - name: Set up Node.js
-      uses: actions/setup-node@v2
+    - uses: actions/checkout@v3
+      
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
-
-    - name: Install MongoDB client
+        
+    - name: Debug Environment
       run: |
-        sudo apt-get update
-        sudo apt-get install -y mongodb-clients || {
-          echo "Failed to install MongoDB client"
-          exit 1
-        }
-
+        echo "Node version: $(node -v)"
+        echo "NPM version: $(npm -v)"
+        echo "Operating System: $(uname -a)"
+        echo "Current directory: $(pwd)"
+        ls -la
+        
     - name: Install dependencies
       run: |
-        npm install || {
-          echo "Failed to install npm dependencies"
-          exit 1
-        }
-
-    - name: Wait for MongoDB to be ready
+        echo "Installing dependencies..."
+        npm ci --verbose
+        echo "Dependencies installed successfully"
+        
+    - name: Verify MongoDB
       run: |
-        for i in {1..30}; do
-          echo "Checking if MongoDB is ready... Attempt $i"
-          if mongo --eval "db.runCommand({ ping: 1 })" --quiet; then
-            echo "MongoDB is ready"
-            break
-          fi
-          echo "Waiting for MongoDB..."
-          sleep 10
-        done
-        if [ $i -eq 30 ]; then
-          echo "MongoDB did not start in time"
-          exit 1
-        fi
-
-    - name: Run tests
+        echo "Checking MongoDB connection..."
+        echo "show dbs" | mongosh --quiet localhost:27017
+        echo "MongoDB check completed"
+        
+    - name: List Test Files
+      run: |
+        echo "Test files in __tests__ directory:"
+        ls -R __tests__/
+        
+    - name: Run tests with debugging
       env:
         MONGODB_URI: mongodb://localhost:27017/testDatabase
+        NODE_ENV: test
+        DEBUG: "test:*,mongodb:*"
+        CI: true
       run: |
-        npm test || {
-          echo "Tests failed"
-          exit 1
-        }
+        echo "Starting tests..."
+        npm test -- --verbose --detectOpenHandles --runInBand --forceExit
+      
+    - name: Debug test failures
+      if: failure()
+      run: |
+        echo "=== Test Debug Information ==="
+        echo "MongoDB Status:"
+        ps aux | grep mongo
+        echo "=== MongoDB Logs ==="
+        mongosh --eval "db.adminCommand('getLog', 'global')"
+        echo "=== Node Process Information ==="
+        ps aux | grep node
+        echo "=== Directory Structure ==="
+        ls -R
