@@ -8,11 +8,11 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04  # Use a specific Ubuntu version if necessary
+    runs-on: ubuntu-22.04  # Specify Ubuntu version if necessary
 
     services:
       mongodb:
-        image: mongo:5.0  # Changed to a stable MongoDB version
+        image: mongo:4.4  # Use a stable MongoDB version (4.4)
         ports:
           - 27017:27017
         options: >-
@@ -36,12 +36,6 @@ jobs:
 
       - name: Install dependencies
         run: npm install
-
-      - name: Retry Docker Mongo container creation
-        run: |
-          for i in {1..3}; do
-            docker create --name mongodb --label github_action -p 27017:27017 --health-cmd "mongo --eval 'db.runCommand({ ping: 1 })'" --health-interval 10s --health-timeout 30s --health-retries 10 mongo:5.0 && break || echo "Retrying Docker Mongo container creation..."; sleep 10;
-          done
 
       - name: Show MongoDB container logs
         run: docker logs mongodb
