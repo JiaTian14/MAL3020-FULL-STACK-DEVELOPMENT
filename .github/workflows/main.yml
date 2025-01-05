@@ -8,28 +8,22 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04  # Use specific Ubuntu version if necessary
+    runs-on: ubuntu-22.04  # Use a specific Ubuntu version if necessary
 
     services:
       mongodb:
         image: mongo:5.0  # Changed to a different MongoDB version (mongo:5.0)
         ports:
           - 27017:27017
-        networks:
-          - mongodb_network  # Custom network for MongoDB
         options: >-
           --memory 4g  # Allocate more memory to MongoDB container
           --health-cmd "mongo --eval 'db.runCommand({ ping: 1 })'"
           --health-interval 10s
           --health-timeout 30s
           --health-retries 10
-    networks:
-      mongodb_network:
-        driver: bridge  # Network configuration
-
-    strategy:
-      matrix:
-        node-version: [14.x, 16.x]  # Running jobs for both Node.js 14.x and 16.x
+        # Correct placement of custom network
+        networks:
+          - mongodb_network
 
     steps:
       - name: Check Docker version
