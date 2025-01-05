@@ -2,17 +2,17 @@ name: Node.js CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   build:
-    runs-on: ubuntu-22.04  # Use a specific Ubuntu version if necessary
+    runs-on: ubuntu-22.04
 
     services:
       mongodb:
-        image: mongo:4.4  # Use a stable MongoDB version (4.4)
+        image: mongo:4.4
         ports:
           - 27017:27017
         options: >-
@@ -21,39 +21,39 @@ jobs:
           --health-timeout 30s
           --health-retries 10
 
+    strategy:
+      matrix:
+        node-version: [14, 16, 18] # Test against multiple Node.js versions
+
     steps:
-      - name: Check Docker version
-        run: docker --version
+    - name: Checkout code
+      uses: actions/checkout@v2
 
-      - name: Checkout code
-        uses: actions/checkout@v2
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: ${{ matrix.node-version }}
 
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v2
-        with:
-          node-version: ${{ matrix.node-version }}
+    - name: Install dependencies
+      run: npm install
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Show MongoDB container logs
-        run: docker logs mongodb
-        continue-on-error: true
-
-      - name: Wait for MongoDB to be ready (Increase wait time)
-        run: |
-          for i in {1..30}; do
-            echo "Checking if MongoDB is ready... Attempt $i"
-            docker exec mongodb mongo --eval "db.runCommand({ ping: 1 })" && break
-            echo "Waiting for MongoDB..."
-            sleep 10
-          done
-          if [ $i -eq 30 ]; then
-            echo "MongoDB did not start in time"
-            exit 1
+    - name: Wait for MongoDB to be ready
+      run: |
+        for i in {1..30}; do
+          echo "Checking if MongoDB is ready... Attempt $i"
+          if docker exec mongodb mongo --eval "db.runCommand({ ping: 1 })"; then
+            echo "MongoDB is ready"
+            break
           fi
+          echo "Waiting for MongoDB..."
+          sleep 10
+        done
+        if [ $i -eq 30 ]; then
+          echo "MongoDB did not start in time"
+          exit 1
+        fi
 
-      - name: Run tests
-        env:
-          MONGODB_URI: mongodb://localhost:27017/testDatabase
-        run: npm test
+    - name: Run tests
+      env:
+        MONGODB_URI: mongodb://localhost:27017/testDatabase
+      run: npm test
