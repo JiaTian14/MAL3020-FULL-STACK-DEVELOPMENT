@@ -34,7 +34,7 @@ jobs:
         
     - name: Run tests
       env:
-        MONGODB_URI: mongodb://localhost:27017/testDatabase
+        MONGODB_URI: mongodb+srv://Tan:1234@assessment.2jgmj.mongodb.net/?retryWrites=true&w=majority&appName=Assessment
         NODE_ENV: test
         DEBUG: mongodb:*,mongoose:*
       run: |
