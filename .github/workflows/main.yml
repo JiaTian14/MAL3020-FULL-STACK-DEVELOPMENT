@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04  # Specify Ubuntu version if necessary
+    runs-on: ubuntu-22.04  # Use a specific Ubuntu version if necessary
 
     services:
       mongodb:
@@ -16,7 +16,6 @@ jobs:
         ports:
           - 27017:27017
         options: >-
-          --memory 4g  # Allocate more memory to MongoDB container
           --health-cmd "mongo --eval 'db.runCommand({ ping: 1 })'"
           --health-interval 10s
           --health-timeout 30s
