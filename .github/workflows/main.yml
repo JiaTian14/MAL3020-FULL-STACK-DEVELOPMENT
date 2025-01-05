@@ -40,12 +40,18 @@ jobs:
         run: docker logs mongodb
         continue-on-error: true
 
-      - name: Wait for MongoDB to be ready
+      - name: Wait for MongoDB to be ready (Increase wait time)
         run: |
-          until docker exec mongodb mongo --eval "db.runCommand({ ping: 1 })"; do
+          for i in {1..30}; do
+            echo "Checking if MongoDB is ready... Attempt $i"
+            docker exec mongodb mongo --eval "db.runCommand({ ping: 1 })" && break
             echo "Waiting for MongoDB..."
-            sleep 5
+            sleep 10
           done
+          if [ $i -eq 30 ]; then
+            echo "MongoDB did not start in time"
+            exit 1
+          fi
 
       - name: Run tests
         env:
