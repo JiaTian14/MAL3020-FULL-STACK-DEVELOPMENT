@@ -37,10 +37,16 @@ jobs:
     - name: Install MongoDB client
       run: |
         sudo apt-get update
-        sudo apt-get install -y mongodb-clients
+        sudo apt-get install -y mongodb-clients || {
+          echo "Failed to install MongoDB client"
+          exit 1
+        }
 
     - name: Install dependencies
-      run: npm install
+      run: npm install || {
+        echo "Failed to install npm dependencies"
+        exit 1
+      }
 
     - name: Wait for MongoDB to be ready
       run: |
@@ -61,4 +67,7 @@ jobs:
     - name: Run tests
       env:
         MONGODB_URI: mongodb://localhost:27017/testDatabase
-      run: npm test
+      run: npm test || {
+        echo "Tests failed"
+        exit 1
+      }
