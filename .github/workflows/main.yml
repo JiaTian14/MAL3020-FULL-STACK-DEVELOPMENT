@@ -66,8 +66,11 @@ jobs:
 
     - name: Run tests
       env:
-        MONGODB_URI: "mongodb+srv://Tan:1234@assessment.2jgmj.mongodb.net/?retryWrites=true&w=majority&appName=Assessment"
-      run: npm test || {
-        echo "Tests failed"
-        exit 1
-      }
+        MONGODB_URI: mongodb+srv://Tan:1234@assessment.2jgmj.mongodb.net/?retryWrites=true&w=majority&appName=Assessment
+      run: |
+        npm test || {
+          echo "Tests failed"
+          exit 1
+        }
+
+
