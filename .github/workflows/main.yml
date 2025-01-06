@@ -23,7 +23,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [16.20.1, 18] # Ensure compatibility with your dependencies
+        node-version: [16.20.1, 18]
       fail-fast: false
 
     steps:
@@ -63,7 +63,7 @@ jobs:
 
     - name: Run tests
       env:
-        MONGODB_URI: mongodb://localhost:27017/testDatabase
+        MONGODB_URI: ${{ secrets.MONGODB_URI }}
         NODE_ENV: test
         DEBUG: mongodb:*,mongoose:*
       run: |
