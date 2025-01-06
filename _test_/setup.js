@@ -4,7 +4,10 @@ let client;
 let db;
 
 beforeAll(async () => {
-    const uri = "mongodb+srv://Tan:1234@assessment.2jgmj.mongodb.net/?retryWrites=true&w=majority&appName=Assessment";
+    MONGODB_URI= "mongodb://localhost:27017/testDatabase";
+    require('dotenv').config();
+    const uri = process.env.MONGODB_URI || "mongodb+srv://Tan:1234@assessment.2jgmj.mongodb.net/?retryWrites=true&w=majority&appName=Assessment";
+
     client = new MongoClient(uri);
     await client.connect();
     db = client.db();

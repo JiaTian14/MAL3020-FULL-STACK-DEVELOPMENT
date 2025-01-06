@@ -1,15 +1,13 @@
-name: Node.js CI
 
+name: Node.js CI
 on:
   push:
     branches: [master]
   pull_request:
     branches: [master]
-
 jobs:
   build:
     runs-on: ubuntu-22.04
-
     services:
       mongodb:
         image: mongo:4.4
@@ -20,45 +18,22 @@ jobs:
           --health-interval 10s
           --health-timeout 30s
           --health-retries 10
-
     strategy:
       matrix:
-        node-version: [14, 16, 18] # Test against multiple Node.js versions
-
+        node-version: [18]
+      fail-fast: false
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-
-    - name: Set up Node.js
-      uses: actions/setup-node@v2
+    - uses: actions/checkout@v3
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
-
-    - name: Install MongoDB client
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y mongodb-clients
-
     - name: Install dependencies
-      run: npm install
-
-    - name: Wait for MongoDB to be ready
-      run: |
-        for i in {1..30}; do
-          echo "Checking if MongoDB is ready... Attempt $i"
-          if mongo --eval "db.runCommand({ ping: 1 })" --quiet; then
-            echo "MongoDB is ready"
-            break
-          fi
-          echo "Waiting for MongoDB..."
-          sleep 10
-        done
-        if [ $i -eq 30 ]; then
-          echo "MongoDB did not start in time"
-          exit 1
-        fi
-
+      run: npm ci
     - name: Run tests
       env:
-        MONGODB_URI: mongodb://localhost:27017/testDatabase
-      run: npm test
+        MONGODB_URI: mongodb+srv://Tan:1234@assessment.2jgmj.mongodb.net/?retryWrites=true&w=majority&appName=Assessment
+        NODE_ENV: test
+        DEBUG:mongodb:,mongoose:
+      run: |
+        npm test -- --verbose --detectOpenHandles --forceExit --testTimeout=30000

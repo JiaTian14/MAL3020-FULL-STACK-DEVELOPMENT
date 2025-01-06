@@ -52,6 +52,6 @@ describe('Product API Integration Tests', () => {
             .get('/api/products');
 
         expect(response.status).toBe(200);
-        expect(response.body.data.length).toBe(23);
+        expect(response.body.data.length).toBe(28);
     });
 });
