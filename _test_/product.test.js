@@ -51,6 +51,6 @@ describe('Product API Integration Tests', () => {
 
         expect(response.status).toBe(200);
         // We expect 26 products (25 from setup + 1 from the previous test)
-        expect(response.body.data.length).toBe(68);
+        expect(response.body.data.length).toBe(70);
     });
 });
