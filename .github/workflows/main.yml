@@ -1,13 +1,15 @@
-
 name: Node.js CI
+
 on:
   push:
     branches: [master]
   pull_request:
     branches: [master]
+
 jobs:
   build:
     runs-on: ubuntu-22.04
+
     services:
       mongodb:
         image: mongo:4.4
@@ -18,20 +20,30 @@ jobs:
           --health-interval 10s
           --health-timeout 30s
           --health-retries 10
+
     strategy:
       matrix:
-        node-version: [14, 16, 18] # Test against multiple Node.js versions
+        node-version: [16.20.1, 18]
+      fail-fast: false
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Set up Node.js
-      uses: actions/setup-node@v2
+      uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
+
+    - name: Install MongoDB client
+      run: |
+        wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | sudo apt-key add -
+        echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list
+        sudo apt-get update
+        sudo apt-get install -y mongodb-org-shell
+
     - name: Install dependencies
-      run: npm install
+      run: npm ci
 
     - name: Wait for MongoDB to be ready
       run: |
@@ -51,5 +63,8 @@ jobs:
 
     - name: Run tests
       env:
-        MONGODB_URI: mongodb://localhost:27017/testDatabase
-      run: npm test
+        MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        NODE_ENV: test
+        DEBUG: mongodb:*,mongoose:*
+      run: |
+        npm test -- --verbose --detectOpenHandles --forceExit --testTimeout=30000
