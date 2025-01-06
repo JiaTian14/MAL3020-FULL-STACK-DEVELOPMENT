@@ -23,19 +23,24 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18]
-      fail-fast: false
+        node-version: [14, 16, 18] # Test against multiple Node.js versions
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v2
 
-    - name: Set up Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
       with:
         node-version: ${{ matrix.node-version }}
 
+    - name: Install MongoDB client
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mongodb-clients
+
     - name: Install dependencies
-      run: npm ci
+      run: npm install
 
     - name: Wait for MongoDB to be ready
       run: |
@@ -56,6 +61,4 @@ jobs:
     - name: Run tests
       env:
         MONGODB_URI: mongodb://localhost:27017/testDatabase
-        NODE_ENV: test
-        DEBUG: mongodb:,mongoose:
-      run: npm test -- --verbose --detectOpenHandles --forceExit --testTimeout=30000
+      run: npm test
