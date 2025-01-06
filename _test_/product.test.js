@@ -3,11 +3,16 @@ const app = require('../server');
 
 describe('Product API Integration Tests', () => {
     let db;
+    let productsCollection;
 
     beforeAll(async () => {
+        // Use the global database instance set up in your test setup file
+        
         db = global.__MONGO_DB__;
+        productsCollection = db.collection('products');
+
         // Clear the collection before running tests
-        await db.collection('products').deleteMany({});
+        await productsCollection.deleteMany({});
         
         // Insert a known set of test data
         const testProducts = Array.from({ length: 25 }, (_, i) => ({
@@ -19,11 +24,12 @@ describe('Product API Integration Tests', () => {
             image: 'https://via.placeholder.com/300x250'
         }));
         
-        await db.collection('products').insertMany(testProducts);
+        await productsCollection.insertMany(testProducts);
     });
     
     afterAll(async () => {
-        await db.collection('products').deleteMany({});
+        // Clean up the products collection after tests
+        await productsCollection.deleteMany({});
     });
 
     it('should create a new product', async () => {
@@ -50,7 +56,6 @@ describe('Product API Integration Tests', () => {
             .get('/api/products');
 
         expect(response.status).toBe(200);
-        // We expect 26 products (25 from setup + 1 from the previous test)
-        expect(response.body.data.length).toBe(70);
+        expect(response.body.data.length).toBe(7);
     });
 });

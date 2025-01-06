@@ -9,6 +9,8 @@ const bodyParser = require('body-parser');
 const session = require('express-session');
 const Product = require('./Assessment2/models/product'); // Corrected the path to the Product model
 const cartRoutes = require('./Assessment2/routes/cartRoutes'); // Import cart routes
+const http = require('http');
+const WebSocket = require('ws');
 
 // Middleware
 app.use(express.json());
@@ -36,12 +38,35 @@ mongoose.connect(uri, {
     console.error('Mongoose connection error:', err);
 });
 
+// Create HTTP server and WebSocket server
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server }); // Remove path for WebSocket
+
+// WebSocket connection handler
+wss.on('connection', (ws) => {
+    console.log('New WebSocket connection');
+
+    ws.on('message', (message) => {
+        console.log('Received message:', message);
+        // Broadcast message to all connected clients
+        wss.clients.forEach((client) => {
+            if (client !== ws && client.readyState === WebSocket.OPEN) {
+                client.send(message);
+            }
+        });
+    });
+
+    ws.on('close', () => {
+        console.log('WebSocket connection closed');
+    });
+});
+
 // Start the server only after a successful Mongoose connection
 if (process.env.NODE_ENV !== 'test') {
     mongoose.connection.once('open', () => {
         console.log('Mongoose connection is open');
         const PORT = process.env.PORT || 3000;
-        app.listen(PORT, () => {
+        server.listen(PORT, () => {
             console.log(`Server is running on port ${PORT}`);
         });
     });
@@ -988,6 +1013,7 @@ app.delete('/api/products/:id', async (req, res) => {
     }
 });
 
+// Notify users when a new product is added
 app.post('/api/products', async (req, res) => {
     try {
         const client = await connectDB();
@@ -1006,12 +1032,23 @@ app.post('/api/products', async (req, res) => {
             throw new Error('Failed to insert product');
         }
 
+        // Notify all connected WebSocket clients about the new product
+        const productData = {
+            _id: result.insertedId,
+            ...newProduct
+        };
+        wss.clients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({
+                    type: 'NEW_PRODUCT',
+                    data: productData
+                }));
+            }
+        });
+
         res.status(201).json({
             success: true,
-            data: {
-                _id: result.insertedId,
-                ...newProduct
-            }
+            data: productData
         });
 
     } catch (error) {

@@ -1,20 +1,28 @@
 const { MongoClient } = require('mongodb');
+const { MongoMemoryServer } = require('mongodb-memory-server');
 
-let client;
+let mongoServer;
+let connection;
 let db;
 
 beforeAll(async () => {
-    require('dotenv').config();
-    const uri = process.env.MONGODB_URI || "mongodb+srv://Tan:1234@assessment.2jgmj.mongodb.net/?retryWrites=true&w=majority&appName=Assessment";
-
-    client = new MongoClient(uri);
-    await client.connect();
-    db = client.db();
-    global.__MONGO_DB__ = db; // Make the db accessible globally
+  mongoServer = await MongoMemoryServer.create();
+  const mongoUri = mongoServer.getUri();
+  
+  connection = await MongoClient.connect(mongoUri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  });
+  
+  db = connection.db();
+  // Make the db instance available globally for tests
+  global.__MONGO_DB__ = db;
+  global.__MONGO_CONNECTION__ = connection;
+  // Set environment variable for your application to use test database
+  process.env.MONGODB_URI = mongoUri;
 });
 
 afterAll(async () => {
-    if (client) {
-        await client.close();
-    }
+  await connection.close();
+  await mongoServer.stop();
 });

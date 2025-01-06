@@ -373,5 +373,38 @@
       <p>&copy; 2024 TechMart. All Rights Reserved.</p>
     </div>
   </footer>
+
+  <script>
+    // Connect to WebSocket server
+    const socket = new WebSocket('ws://localhost:3000'); // Update the endpoint to match the server
+
+    // WebSocket connection opened
+    socket.addEventListener('open', (event) => {
+        console.log('Connected to WebSocket server');
+    });
+
+    // Handle incoming WebSocket messages
+    socket.addEventListener('message', (event) => {
+        const message = JSON.parse(event.data);
+        console.log('Received message:', message);
+
+        if (message.type === 'NEW_PRODUCT') {
+            // Handle new product notification
+            const newProduct = message.data;
+            alert(`New product added: ${newProduct.name}`);
+            // Optionally, update the UI with the new product details
+        }
+    });
+
+    // WebSocket connection closed
+    socket.addEventListener('close', (event) => {
+        console.log('WebSocket connection closed');
+    });
+
+    // WebSocket error
+    socket.addEventListener('error', (event) => {
+        console.error('WebSocket error:', event);
+    });
+  </script>
 </body>
 </html>
