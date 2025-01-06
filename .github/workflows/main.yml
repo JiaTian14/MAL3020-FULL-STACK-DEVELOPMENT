@@ -1,50 +1,61 @@
 name: Node.js CI
+
 on:
   push:
     branches: [master]
   pull_request:
     branches: [master]
+
 jobs:
   build:
     runs-on: ubuntu-22.04
+
     services:
       mongodb:
         image: mongo:4.4
         ports:
           - 27017:27017
-        env:
-          MONGO_INITDB_DATABASE: test
         options: >-
-          --health-cmd mongosh --eval "db.runCommand({ ping: 1 })"
+          --health-cmd "mongo --eval 'db.runCommand({ ping: 1 })'"
           --health-interval 10s
           --health-timeout 30s
           --health-retries 10
+
     strategy:
       matrix:
         node-version: [18]
       fail-fast: false
+
     steps:
     - uses: actions/checkout@v3
+
     - name: Set up Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    
-    - name: Install MongoDB Shell
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y mongodb-mongosh
 
     - name: Install dependencies
       run: npm ci
-      
+
+    - name: Wait for MongoDB to be ready
+      run: |
+        for i in {1..30}; do
+          echo "Checking if MongoDB is ready... Attempt $i"
+          if mongo --eval "db.runCommand({ ping: 1 })" --quiet; then
+            echo "MongoDB is ready"
+            break
+          fi
+          echo "Waiting for MongoDB..."
+          sleep 10
+        done
+        if [ $i -eq 30 ]; then
+          echo "MongoDB did not start in time"
+          exit 1
+        fi
+
     - name: Run tests
       env:
-        MONGODB_URI: mongodb://localhost:27017/test
+        MONGODB_URI: mongodb://localhost:27017/testDatabase
         NODE_ENV: test
-        DEBUG: mongodb:*,mongoose:*
-      run: |
-        # Wait for MongoDB to be ready (using mongosh)
-        mongosh --eval "db.runCommand({ ping: 1 })" mongodb://localhost:27017/test
-        npm test -- --verbose --detectOpenHandles --forceExit --testTimeout=30000
+        DEBUG: mongodb:,mongoose:
+      run: npm test -- --verbose --detectOpenHandles --forceExit --testTimeout=30000
