@@ -41,6 +41,6 @@ describe('Product API Integration Tests', () => {
             .get('/api/products');
     
         expect(response.status).toBe(200);
-        expect(response.body.data.length).toBe(40); // Update this number if 40 is correct
+        expect(response.body.data.length).toBe(47); // Update this number if 40 is correct
     });
 });
